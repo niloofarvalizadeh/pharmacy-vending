@@ -294,6 +294,85 @@ wss.on('connection', (ws) => {
 
     switch (msg.type) {
       // ---------------------------------------------------------
+      // PROMPT 0 & PROMPT 5 ARCHITECTURE STANDARD HARDWARE EVENTS
+      // ---------------------------------------------------------
+      case 'SLOT_CHECK': {
+        const slotId = msg.slotId || (msg.data && msg.data.slotId) || 'A1';
+        const prod = db.getProductBySlot ? db.getProductBySlot(slotId) : null;
+        const inStock = prod ? prod.stock > 0 : true;
+        ws.send(JSON.stringify({
+          type: 'SLOT_STATUS',
+          status: 'ok',
+          data: {
+            ok: inStock,
+            slotId,
+            stock: prod ? prod.stock : 10
+          }
+        }));
+        break;
+      }
+
+      case 'PAY_REQUEST': {
+        const amount = msg.amount || (msg.data && msg.data.amount) || 0;
+        console.log(`[WS Mock] PAY_REQUEST received for amount: ${amount}`);
+        if (ws._payTimer) clearTimeout(ws._payTimer);
+        if (ws._dropTimer) clearTimeout(ws._dropTimer);
+        if (ws._receiptTimer) clearTimeout(ws._receiptTimer);
+
+        // 1. Simulate POS approval after short realistic delay (2.5s)
+        ws._payTimer = setTimeout(() => {
+          ws._payTimer = null;
+          ws.send(JSON.stringify({
+            type: 'POS_ACK',
+            status: 'success',
+            data: { status: 'success', amount }
+          }));
+
+          // 2. Simulate mechanical DROP_SUCCESS 1.5s after POS approval
+          ws._dropTimer = setTimeout(() => {
+            ws._dropTimer = null;
+            ws.send(JSON.stringify({
+              type: 'DROP_SUCCESS',
+              data: { slotId: 'A1' }
+            }));
+          }, 1500);
+
+          // 3. Simulate RECEIPT_PRINTED 3.5s after POS approval
+          ws._receiptTimer = setTimeout(() => {
+            ws._receiptTimer = null;
+            ws.send(JSON.stringify({
+              type: 'RECEIPT_PRINTED',
+              data: {}
+            }));
+          }, 3500);
+        }, 2500);
+        break;
+      }
+
+      case 'PAY_CANCEL': {
+        const reason = msg.reason || (msg.data && msg.data.reason) || 'user';
+        console.log(`[WS Mock] PAY_CANCEL received. Reason: ${reason}`);
+        if (ws._payTimer) {
+          clearTimeout(ws._payTimer);
+          ws._payTimer = null;
+        }
+        if (ws._dropTimer) {
+          clearTimeout(ws._dropTimer);
+          ws._dropTimer = null;
+        }
+        if (ws._receiptTimer) {
+          clearTimeout(ws._receiptTimer);
+          ws._receiptTimer = null;
+        }
+        ws.send(JSON.stringify({
+          type: 'POS_ACK',
+          status: 'cancelled',
+          data: { status: 'cancelled', reason }
+        }));
+        break;
+      }
+
+      // ---------------------------------------------------------
       // CUSTOMER FLOW: TRANSACTIONS & DISPENSE
       // ---------------------------------------------------------
 

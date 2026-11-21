@@ -1,1314 +1,472 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=1080, height=1920, initial-scale=1.0, user-scalable=no">
-  <title>کیوسک هوشمند داروخانه دکتر قاسمی | Smart Rx 24</title>
-  
-  <!-- Persian Vazirmatn Font -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-  
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/admin.css">
+  <title>داروخانه دکتر موحد | کیوسک هوشمند ۵۵ اینچ</title>
+  <link rel="stylesheet" href="css/kiosk.css">
 </head>
+
 <body>
-  <!-- Global 1080x1920 Kiosk Frame -->
-  <div id="kioskContainer">
+  <!-- Kiosk Fixed 1080x1920 Stage Frame -->
+  <main id="kioskRoot">
 
     <!-- =========================================================================
-         TOP STATUS BAR (PERSISTENT ACROSS CUSTOMER SCREENS)
+         PERSISTENT HEADER (RTL)
+         Right: Logo + Wordmark ("داروخانه", "داروخانه دکتر موحد")
+         Left: Ghost Buttons (Language Selector & Pharmacy Info Modal)
          ========================================================================= -->
-    <header class="kiosk-status-bar">
-      <!-- Right Side (RTL): Clock & Persian Date -->
-      <div class="status-bar-group">
-        <span id="statusClock" class="status-clock">۱۱:۵۵</span>
-        <span id="statusDate" class="status-date">سه‌شنبه ۲۰ آبان</span>
-      </div>
-
-      <!-- Logo and Branding -->
-      <div class="home-brand-row">
-          <div class="home-cross-logo">
-            <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-          </div>
-          <div class="home-brand-text">
-            <div class="home-pharmacy-name">داروخانه دکتر قاسمی</div>
-          </div>
-      </div>
-
-      <!-- Left Side (RTL): Audio, Language, Cloud Status & Secret Lock -->
-      <div class="status-bar-group">
-        <!-- Cloud Connectivity Pill -->
-        <div id="cloudPill" class="cloud-pill">
-          <span class="pulsing-dot"></span>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M5 12.55a11 11 0 0 1 14.08 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"></path>
+    <header class="kiosk-header" id="kioskHeader">
+      <!-- Right Side (RTL): Logo + Stacked Wordmark -->
+      <div class="header-brand-group" id="headerBrandTrigger" role="banner">
+        <div class="brand-logo-wrap" aria-hidden="true">
+          <!-- Rounded Medical Cross with Leaf Motif SVG -->
+          <svg width="72" height="72" viewBox="0 0 72 72" fill="none" class="pharmacy-logo-svg">
+            <!-- Rounded Cross Arms -->
+            <path
+              d="M42 8C42 4.69 39.31 2 36 2C32.69 2 30 4.69 30 8V24H14C10.69 24 8 26.69 8 30C8 33.31 10.69 36 14 36H30V52C30 55.31 32.69 58 36 58C39.31 58 42 55.31 42 52V36H58C61.31 36 64 33.31 64 30C64 26.69 61.31 24 58 24H42V8Z"
+              fill="#532B8C" />
+            <!-- Organic Leaf Motif branching from center-right -->
+            <path d="M38 26C38 26 48 16 60 19C60 31 50 41 50 41C50 41 46 32 38 26Z" fill="#7C4DBF" />
+            <path d="M44 27C48 24 53 23 57 23" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" />
           </svg>
-          <span id="cloudStatusText">متصل به سرور</span>
         </div>
+        <div class="brand-text-col">
+          <span class="wordmark-main" id="lblPharmacyWordmark">داروخانه</span>
+          <span class="wordmark-sub" id="lblPharmacyTitle">داروخانه دکتر موحد</span>
+        </div>
+      </div>
 
-        <!-- Language Pill Button -->
-        <button type="button" id="btnLangToggle" class="lang-btn" aria-label="انتخاب زبان">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <!-- Left Side (RTL): Ghost Circular Controls -->
+      <div class="header-actions-group">
+        <!-- Language Switcher Trigger (Chevron-down icon) -->
+        <button type="button" class="btn-ghost-circle" id="btnLangToggle" aria-label="انتخاب زبان" aria-haspopup="true"
+          aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+
+        <!-- Pharmacy Information Trigger (Info icon) -->
+        <button type="button" class="btn-ghost-circle" id="btnInfoToggle" aria-label="اطلاعات داروخانه"
+          aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" fill="none">
             <circle cx="12" cy="12" r="10"></circle>
-            <line x1="2" y1="12" x2="22" y2="12"></line>
-            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-          </svg>
-          <span id="langLabel">فارسی</span>
-        </button>
-
-        <!-- Audio Guide Toggle (Green Circle) -->
-        <button type="button" id="btnAudioToggle" class="audio-btn" aria-label="راهنمای صوتی">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-            <path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"></path>
-          </svg>
-        </button>
-
-        <!-- Secret Admin Trigger -->
-        <button type="button" id="btnAdminTrigger" class="admin-lock-btn" aria-label="پنل مدیریت">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
           </svg>
         </button>
       </div>
+
+      <!-- Language Dropdown Menu (Opens on chevron-down tap) -->
+      <nav class="lang-dropdown-menu" id="langDropdown" aria-label="منوی انتخاب زبان">
+        <button type="button" class="lang-option-btn is-active" data-lang="fa">
+          <span>فارسی</span>
+          <span class="lang-badge">فا</span>
+        </button>
+        <button type="button" class="lang-option-btn" data-lang="en">
+          <span>English</span>
+          <span class="lang-badge">EN</span>
+        </button>
+        <button type="button" class="lang-option-btn" data-lang="ar">
+          <span>العربية</span>
+          <span class="lang-badge">عر</span>
+        </button>
+      </nav>
     </header>
 
+    <!-- Info Modal Dialog (Fake Glass Card, Zero GPU Cost) -->
+    <div class="info-modal-backdrop" id="infoModalBackdrop" role="dialog" aria-modal="true"
+      aria-labelledby="lblInfoModalTitle">
+      <div class="info-modal-card">
+        <div class="info-modal-logo">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M12 2v20M2 12h20" />
+          </svg>
+        </div>
+        <h2 class="info-modal-title" id="lblInfoModalTitle">داروخانه دکتر موحد</h2>
+        <p class="info-modal-desc" id="lblInfoModalDesc">
+          کیوسک وندینگ هوشمند داروخانه با کنترل دمای پایدار و تحویل مکانیزه محصولات سلامت
+        </p>
+        <div class="info-modal-support">
+          <span id="lblSupportLabel">پشتیبانی شبانه‌روزی:</span>
+          <span id="lblSupportPhone">۰۲۱-۸۸۲۲۳۳۴۴</span>
+        </div>
+        <button type="button" class="btn-modal-close" id="btnInfoModalClose">بستن</button>
+      </div>
+    </div>
+
     <!-- =========================================================================
-         MAIN APPLICATION VIEWPORT
+         VIEWS VIEWPORT (Compositor-only instant screen switching)
          ========================================================================= -->
-    <main id="kioskViewport" class="kiosk-viewport">
+    <div class="views-viewport" id="viewsViewport">
 
-      <!-- -----------------------------------------------------------------------
-           SCREEN 1: HOME (صفحه خانه - BONE/CREAM BACKGROUND)
-           ----------------------------------------------------------------------- -->
-      <section id="screen-home" class="screen-view home-screen active">
-        <!-- Pharmacy Brand Header -->        
-          <!-- Hero Pill Tag & Headline -->
-        <div class="home-hero-badge-pill">بدون نیاز به نسخه · ۲۴ ساعت</div>
-        <h1 class="home-headline">
-          داروی مورد نیازتان را<br>
-          <span class="mint-highlight">کمتر از یک دقیقه</span> نگه دارید
-        </h1>
+      <!-- =====================================================================
+           VIEW 1: HOME (id="view-home", data-view="home", Attract/Idle Screen)
+           ===================================================================== -->
+      <section class="view is-active" data-view="home" id="view-home" aria-hidden="false">
+        <div class="home-viewport-content">
 
-        <!-- Featured Medicine Card (پرفروش هفته) -->
-        <div class="home-featured-card" id="homeFeaturedCard">
-          <div class="home-featured-badge">پرفروش هفته</div>
-          <div class="home-featured-info">
-            <h2 class="home-featured-title">استامینوفن ۵۰۰</h2>
-            <p class="home-featured-desc">تسکین سریع سردرد و تب — بدون نیاز به نسخه</p>
-            <div class="home-featured-dots">
-              <span class="feat-dot active"></span>
-              <span class="feat-dot"></span>
-              <span class="feat-dot"></span>
-            </div>
-          </div>
-          <div class="home-featured-visual" id="homeFeaturedVisual">
-            <!-- Rendered via JS -->
-          </div>
-        </div>
-
-        <!-- 3 Trust Badges Row -->
-        <div class="home-trust-row">
-          <div class="home-trust-card">
-            <div class="trust-card-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                <polyline points="9 12 11 14 15 10"></polyline>
+          <!-- 1. VIDEO BANNER CARD (Tap opens fullscreen video) -->
+          <div class="video-banner-card" id="videoBannerCard" role="button" tabindex="0"
+            aria-label="پخش ویدیوی آموزشی و سلامت">
+            <!-- Pulsing Play Button in Center (Opacity only 0.55->0.85) -->
+            <div class="banner-play-btn" aria-hidden="true">
+              <svg class="banner-play-icon" viewBox="0 0 24 24">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
               </svg>
             </div>
-            <div class="trust-card-text">
-              <strong>اصالت کالا</strong>
-              <span>تحت نظارت داروساز</span>
+
+            <!-- Banner Text Overlay (Right side in RTL) -->
+            <div class="banner-overlay-right">
+              <h2 class="banner-title-text" id="lblBannerTitle">ویدیوهای آموزشی و سلامت</h2>
+              <div class="banner-pill-chip" id="lblBannerCta">مشاهده ویدیوهای آموزشی</div>
             </div>
           </div>
 
-          <div class="home-trust-card">
-            <div class="trust-card-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"></path>
-              </svg>
-            </div>
-            <div class="trust-card-text">
-              <strong>نگهداری استاندارد</strong>
-              <span>دمای ۲۲، رطوبت ۴۱٪</span>
-            </div>
-          </div>
-
-          <div class="home-trust-card">
-            <div class="trust-card-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <polyline points="12 6 12 12 16 14"></polyline>
-              </svg>
-            </div>
-            <div class="trust-card-text">
-              <strong>تاریخ انقضا معتبر</strong>
-              <span>حداقل ۱۲ ماه</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Big Primary CTA Glowing Button -->
-        <button type="button" id="btnStartShopping" class="home-cta-btn">
-          <div class="cta-left-circle">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="19" y1="12" x2="5" y2="12"></line>
-              <polyline points="12 19 5 12 12 5"></polyline>
-            </svg>
-          </div>
-          <div class="cta-center-text">
-            <div class="cta-main-title">شروع خرید / انتخاب محصول</div>
-            <div class="cta-sub-title">برای شروع صفحه را لمس کنید</div>
-          </div>
-          <div class="cta-hand-squircle">
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 11V6a2 2 0 0 0-4 0v4"></path>
-              <path d="M14 10V4a2 2 0 0 0-4 0v7"></path>
-              <path d="M10 10.5V6a2 2 0 0 0-4 0v8"></path>
-              <path d="M18 8a2 2 0 0 1 4 4v4a8 8 0 0 1-16 0v-2"></path>
-            </svg>
-          </div>
-        </button>
-
-        <!-- Symptom Shortcuts Grid -->
-        <div class="home-symptom-label">یا بر اساس علائم انتخاب کنید</div>
-        <div class="home-symptom-grid">
-          <div class="home-symptom-card" data-category="head">
-            <div class="symptom-icon-box">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-7 7c0 2.5 1.5 5 3 6.5V18h8v-2.5c1.5-1.5 3-4 3-6.5a7 7 0 0 0-7-7z"></path>
-              </svg>
-            </div>
-            <div class="home-symptom-name">سر و درد</div>
-            <div class="home-symptom-sub">سردرد، تب، درد عمومی</div>
-          </div>
-
-          <div class="home-symptom-card" data-category="chest">
-            <div class="symptom-icon-box">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 4v16m0-16c-3 0-5 2-5 6v6c0 3 2 4 5 4m0-16c3 0 5 2 5 6v6c0 3-2 4-5 4"></path>
-              </svg>
-            </div>
-            <div class="home-symptom-name">طول عمر</div>
-            <div class="home-symptom-sub">سرفه، گلودرد، سرماخوردگی</div>
-          </div>
-
-          <div class="home-symptom-card" data-category="stomach">
-            <div class="symptom-icon-box">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="8"></circle>
-                <path d="M12 8v4l3 3"></path>
-              </svg>
-            </div>
-            <div class="home-symptom-name">معده و دستگاه گوارش</div>
-            <div class="home-symptom-sub">سوءهاضمه، اسهال، ترش کردن</div>
-          </div>
-
-          <div class="home-symptom-card" data-category="skin">
-            <div class="symptom-icon-box">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M2 12c3-3 6-3 9 0s6 3 9 0M2 7c3-3 6-3 9 0s6 3 9 0M2 17c3-3 6-3 9 0s6 3 9 0"></path>
-              </svg>
-            </div>
-            <div class="home-symptom-name">پوست و زخم</div>
-            <div class="home-symptom-sub">خارش، سوختگی، بریدگی</div>
-          </div>
-        </div>
-
-        <div class="home-footer-note">
-          پشتیبانی داروساز: ۰۲۱-۹۱۰۰۲۴۲۴ • برای نسخه‌های تخصصی به داروخانه مراجعه کنید
-        </div>
-      </section>
-
-      <!-- -----------------------------------------------------------------------
-           SCREEN 2: CATALOG (انتخاب محصول - کاتالوگ ۱۶ کالا)
-           ----------------------------------------------------------------------- -->
-      <section id="screen-catalog" class="screen-view catalog-screen">
-        <!-- Stepper Header -->
-        <div class="stepper-header">
-          <button type="button" class="btn-step-back" id="btnBackToHome" aria-label="بازگشت به خانه">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <polyline points="9 18 15 12 9 6"></polyline>
-            </svg>
-          </button>
-          <div class="stepper-title-col">
-            <div class="stepper-step-label">مرحله ۱ از ۴</div>
-            <div class="stepper-heading">محصول مورد نظر را انتخاب کنید</div>
-          </div>
-          <div style="width: 56px;"></div> <!-- Spacer -->
-        </div>
-
-        <!-- 4-Step Pills Bar -->
-        <div class="stepper-pills-bar">
-          <div class="step-pill active" id="stepPill1">
-            <span class="step-num-badge">۱</span>
-            <span>انتخاب</span>
-          </div>
-          <div class="step-pill" id="stepPill2">
-            <span class="step-num-badge">۲</span>
-            <span>تایید</span>
-          </div>
-          <div class="step-pill" id="stepPill3">
-            <span class="step-num-badge">۳</span>
-            <span>پرداخت</span>
-          </div>
-          <div class="step-pill" id="stepPill4">
-            <span class="step-num-badge">۴</span>
-            <span>تحویل</span>
-          </div>
-        </div>
-
-        <!-- 4 Body Category Tabs -->
-        <div class="catalog-cats-row">
-          <div class="cat-btn-card active" data-cat="head">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"></circle></svg>
-            <span>سر و درد</span>
-          </div>
-          <div class="cat-btn-card" data-cat="chest">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v16m0-16c-3 0-5 2-5 6v6c0 3 2 4 5 4m0-16c3 0 5 2 5 6v6c0 3-2 4-5 4"></path></svg>
-            <span>قفسه سینه</span>
-          </div>
-          <div class="cat-btn-card" data-cat="stomach">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"></circle><path d="M12 8v4l3 3"></path></svg>
-            <span>معده و گوارش</span>
-          </div>
-          <div class="cat-btn-card" data-cat="skin">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12c3-3 6-3 9 0s6 3 9 0"></path></svg>
-            <span>پوست و زخم</span>
-          </div>
-        </div>
-
-        <!-- Sub-filter Pills Row -->
-        <div class="subfilters-scroll-row" id="subfilterRow">
-          <button type="button" class="subfilter-pill active" data-sub="all">همه ۱۶</button>
-          <button type="button" class="subfilter-pill" data-sub="مسکن و تب بر">مسکن و تب بر ۲</button>
-          <button type="button" class="subfilter-pill" data-sub="سرماخوردگی">سرماخوردگی ۲</button>
-          <button type="button" class="subfilter-pill" data-sub="گوارشی">گوارشی ۴</button>
-          <button type="button" class="subfilter-pill" data-sub="پوست و زخم">پوست و زخم ۲</button>
-          <button type="button" class="subfilter-pill" data-sub="ویتامین و مکمل">ویتامین و مکمل ۲</button>
-          <button type="button" class="subfilter-pill" data-sub="بهداشت شخصی">بهداشت شخصی ۲</button>
-        </div>
-
-        <!-- Meta Count & Legend -->
-        <div class="catalog-meta-row">
-          <div id="catalogTotalCount">۱۶ محصول</div>
-          <div class="catalog-indicators">
-            <div class="ind-item"><span class="ind-dot in-stock"></span>موجودی</div>
-            <div class="ind-item"><span class="ind-dot out-stock"></span>ناموجود</div>
-          </div>
-        </div>
-
-        <!-- Reachability Dashed Notice Area -->
-        <div class="reachability-notice" id="reachabilityNotice">
-          منو برای دسترسی آسان‌تر پایین آمده است
-        </div>
-
-        <!-- 3-Column Products Grid -->
-        <div class="products-bento-grid" id="productsGrid">
-          <!-- Dynamically populated via kiosk-app.js -->
-        </div>
-
-        <!-- Floating Bottom Toolbar -->
-        <div class="catalog-bottom-bar">
-          <button type="button" id="btnCancelCatalog" class="btn-toolbar-cancel">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-            </svg>
-            <span>لغو و بازگشت</span>
-          </button>
-
-          <button type="button" id="btnReachabilityToggle" class="btn-toolbar-reach">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <polyline points="19 12 12 19 5 12"></polyline>
-            </svg>
-            <span>کاهش ارتفاع منو</span>
-          </button>
-
-          <button type="button" id="btnPrivacyToggle" class="btn-toolbar-privacy">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-              <circle cx="12" cy="12" r="3"></circle>
-            </svg>
-            <span id="privacyBtnLabel">حالت حریم خصوصی: غیرفعال</span>
-          </button>
-        </div>
-      </section>
-
-      <!-- -----------------------------------------------------------------------
-           SCREEN 3: CONFIRM & DETAILS (بررسی و تایید سفارش)
-           ----------------------------------------------------------------------- -->
-      <section id="screen-confirm" class="screen-view confirm-screen">
-        <!-- Stepper Header -->
-        <div class="stepper-header">
-          <button type="button" class="btn-step-back" id="btnBackToCatalog" aria-label="بازگشت به کاتالوگ">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <polyline points="9 18 15 12 9 6"></polyline>
-            </svg>
-          </button>
-          <div class="stepper-title-col">
-            <div class="stepper-step-label">مرحله ۲ از ۴</div>
-            <div class="stepper-heading">سفارش خود را بررسی و تایید کنید</div>
-          </div>
-          <div style="width: 56px;"></div>
-        </div>
-
-        <!-- 4-Step Pills Bar -->
-        <div class="stepper-pills-bar">
-          <div class="step-pill completed">
-            <span class="step-num-badge">✓</span>
-            <span>انتخاب</span>
-          </div>
-          <div class="step-pill active">
-            <span class="step-num-badge">۲</span>
-            <span>تایید</span>
-          </div>
-          <div class="step-pill">
-            <span class="step-num-badge">۳</span>
-            <span>پرداخت</span>
-          </div>
-          <div class="step-pill">
-            <span class="step-num-badge">۴</span>
-            <span>تحویل</span>
-          </div>
-        </div>
-
-        <!-- Main 2-Column Grid -->
-        <div class="confirm-main-grid">
-          <!-- Left Column: Physical Slot & Smart Suggestion -->
-          <div class="confirm-left-col">
-            <!-- Physical Slot Box (Dark Navy Card) -->
-            <div class="confirm-slot-card">
-              <div class="slot-card-label">شماره اسلات فیزیکی</div>
-              <div class="slot-card-id" id="confirmSlotCode">E2</div>
-              <div class="slot-matrix-grid" id="confirmSlotGrid">
-                <!-- 24 mini slot blocks rendered via JS -->
-              </div>
-              <div class="slot-card-sub" id="confirmSlotLocation">ردیف E · ستون ۲</div>
-            </div>
-
-            <!-- Smart Supplement Suggestion Card -->
-            <div class="smart-suggestion-card">
-              <div class="smart-sugg-header">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
-                </svg>
-                <span>پیشنهاد مکمل هوشمند</span>
-              </div>
-              <div class="smart-sugg-visual" id="confirmCrossVisual">
-                <!-- Pack illustration -->
-              </div>
-              <div class="smart-sugg-title" id="confirmCrossTitle">ویتامین C جوشان</div>
-              <div class="smart-sugg-note">اغلب همراه این محصول خریداری می‌شود</div>
-              <div class="smart-sugg-price" id="confirmCrossPrice">۱۱۲,۰۰۰ تومان</div>
-              <button type="button" id="btnAddCrossSell" class="btn-add-cross-sell">+ افزودن به سفارش</button>
-            </div>
-          </div>
-
-          <!-- Right Column: Product Detail Card -->
-          <div class="confirm-product-card">
-            <div class="confirm-pack-spotlight" id="confirmMainVisual">
-              <!-- Rendered via JS -->
-            </div>
-            <div class="confirm-code-tag" id="confirmProductCategoryCode">ویتامین و مکمل · PX-2218</div>
-            <h2 class="confirm-title-fa" id="confirmTitleFa">ویتامین D3 ۱۰۰۰</h2>
-            <div class="confirm-title-en" id="confirmTitleEn">Vitamin D3 1000 IU</div>
-            <div class="confirm-indication" id="confirmIndication">سلامت استخوان و ایمنی، سافت‌ژل</div>
-            <div class="confirm-stock-pill" id="confirmStockBadge">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-              <span>موجودی محدود Low Stock</span>
-            </div>
-
-            <!-- Quantity Selector -->
-            <div class="confirm-qty-pill">
-              <span class="qty-label">تعداد</span>
-              <div class="qty-counter-group">
-                <button type="button" class="btn-qty" id="btnQtyMinus">−</button>
-                <span class="qty-number" id="qtyNumber">۱</span>
-                <button type="button" class="btn-qty" id="btnQtyPlus">+</button>
-              </div>
-            </div>
-            <div class="qty-max-hint">حداکثر ۲ عدد قابل خرید است</div>
-          </div>
-        </div>
-
-        <!-- Drug Facts Card (جدول ترکیبات) -->
-        <div class="confirm-facts-card">
-          <div class="facts-card-header">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M10 2v7.31M14 2v7.31M8.5 2h7M14 9.3a6.5 6.5 0 1 1-4 0"></path>
-            </svg>
-            <span>جدول ترکیبات</span>
-          </div>
-
-          <table class="facts-table">
-            <thead>
-              <tr>
-                <th>ماده</th>
-                <th>مقدار / نقش</th>
-              </tr>
-            </thead>
-            <tbody id="confirmFactsTableBody">
-              <tr>
-                <td>کوله کلسیفرول</td>
-                <td>۱۰۰۰ IU</td>
-              </tr>
-              <tr>
-                <td>روغن زیتون</td>
-                <td>حامل</td>
-              </tr>
-              <tr>
-                <td>ژلاتین</td>
-                <td>پوشش</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div class="facts-usage-pill">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <polyline points="12 6 12 12 16 14"></polyline>
-            </svg>
-            <span>نحوه مصرف: روزی ۱ عدد همراه غذا</span>
-          </div>
-
-          <div class="facts-warning-row">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-              <line x1="12" y1="9" x2="12" y2="13"></line>
-              <line x1="12" y1="17" x2="12.01" y2="17"></line>
-            </svg>
-            <span>در صورت بارداری، شیردهی یا مصرف داروی دیگر با پزشک مشورت کنید.</span>
-          </div>
-        </div>
-
-        <!-- Sticky Checkout Bar -->
-        <div class="confirm-checkout-bar">
-          <div class="checkout-items-summary" id="checkoutItemsList">
-            <span>ویتامین D3 ۱۰۰۰ × ۱: ۱۳۸,۰۰۰</span>
-          </div>
-          <div class="checkout-actions-row">
-            <div class="checkout-total-block">
-              <div class="total-label">مبلغ کل قابل پرداخت</div>
-              <div class="total-amount-display" id="confirmTotalDisplay">
-                ۱۳۸,۰۰۰ <span>تومان</span>
-              </div>
-            </div>
-            <div class="checkout-btns-group">
-              <button type="button" id="btnCancelConfirmation" class="btn-checkout-cancel">✕ لغو</button>
-              <button type="button" id="btnProceedToPayment" class="btn-checkout-proceed">
-                <span>تایید و پرداخت</span>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <line x1="19" y1="12" x2="5" y2="12"></line>
-                  <polyline points="12 19 5 12 12 5"></polyline>
-                </svg>
+          <!-- 2. SECTION "پرفروش‌ترین محصولات" (Row Header + 3 Product Cards) -->
+          <div class="home-section-group">
+            <div class="section-header-row">
+              <h2 class="section-title" id="lblBestSellersTitle">پرفروش‌ترین محصولات</h2>
+              <button type="button" class="btn-view-all" id="btnViewAllBestSellers">
+                <span id="lblViewAll">مشاهده همه</span>
               </button>
             </div>
+
+            <!-- Horizontal Row of exactly 3 Product Cards -->
+            <div class="products-cards-row" id="bestSellersRow">
+              <!-- Dynamically populated & localized via main.js from Proxy store.bestSellers -->
+            </div>
           </div>
+
+          <!-- 3. SECTION "دسته‌بندی‌ها" (Row Header + 3 Category Cards) -->
+          <div class="home-section-group">
+            <div class="section-header-row">
+              <h2 class="section-title" id="lblCategoriesTitle">دسته‌بندی‌ها</h2>
+            </div>
+
+            <!-- Row of 3 Category Cards -->
+            <div class="categories-cards-row" id="categoriesRow">
+              <!-- Card 1: سلامت جنسی (Shield with Heart) -->
+              <div class="category-card" data-category="sexual_health" role="button" tabindex="0">
+                <div class="category-card-icon" aria-hidden="true">
+                  <svg viewBox="0 0 96 96">
+                    <path d="M48 10C65 18 80 20 84 42C88 64 68 82 48 88C28 82 8 64 12 42C16 20 31 18 48 10Z" />
+                    <path d="M48 64C48 64 32 52 32 38C32 28 42 24 48 32C54 24 64 28 64 38C64 52 48 64 48 64Z"
+                      fill="rgba(83, 43, 140, 0.12)" />
+                  </svg>
+                </div>
+                <span class="category-card-title" id="lblCatSexualHealth">سلامت جنسی</span>
+              </div>
+
+              <!-- Card 2: سلامت بانوان (Woman Profile with Flower) -->
+              <div class="category-card" data-category="womens_health" role="button" tabindex="0">
+                <div class="category-card-icon" aria-hidden="true">
+                  <svg viewBox="0 0 96 96">
+                    <path d="M38 28C42 16 58 14 66 24C74 34 72 46 68 56C64 66 60 76 60 84" />
+                    <path d="M46 36C40 38 34 44 36 50C38 56 46 56 48 60C50 64 46 72 40 82" />
+                    <path d="M48 24C48 24 44 14 36 16C28 18 28 26 34 30C40 34 48 24 48 24Z" />
+                    <path d="M30 22C24 20 18 24 20 32C22 40 32 38 34 30" />
+                  </svg>
+                </div>
+                <span class="category-card-title" id="lblCatWomensHealth">سلامت بانوان</span>
+              </div>
+
+              <!-- Card 3: داروهای ترکیبی (Two Capsules + Round Pill) -->
+              <div class="category-card" data-category="compounded" role="button" tabindex="0">
+                <div class="category-card-icon" aria-hidden="true">
+                  <svg viewBox="0 0 96 96">
+                    <rect x="22" y="32" width="22" height="46" rx="11" transform="rotate(-30 33 55)" />
+                    <line x1="20" y1="55" x2="40" y2="44" />
+                    <rect x="52" y="32" width="22" height="46" rx="11" transform="rotate(30 63 55)" />
+                    <line x1="56" y1="44" x2="76" y2="55" />
+                    <circle cx="48" cy="24" r="14" />
+                    <line x1="38" y1="24" x2="58" y2="24" />
+                  </svg>
+                </div>
+                <span class="category-card-title" id="lblCatCompounded">داروهای ترکیبی</span>
+              </div>
+            </div>
+          </div>
+
         </div>
       </section>
 
-      <!-- -----------------------------------------------------------------------
-           SCREEN 4: PAYMENT (صفحه پرداخت بانکی)
-           ----------------------------------------------------------------------- -->
-      <section id="screen-payment" class="screen-view payment-screen">
-        <!-- Stepper Header -->
-        <div class="stepper-header">
-          <button type="button" class="btn-step-back" id="btnBackToConfirm" aria-label="بازگشت به تایید">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <polyline points="9 18 15 12 9 6"></polyline>
-            </svg>
-          </button>
-          <div class="stepper-title-col">
-            <div class="stepper-step-label">مرحله ۳ از ۴</div>
-            <div class="stepper-heading">روش پرداخت را انتخاب کنید</div>
-          </div>
-          <div style="width: 56px;"></div>
-        </div>
+      <!-- =====================================================================
+           VIEW 2: CATALOG (کاتالوگ محصولات) - Skeleton for next prompt
+           ===================================================================== -->
+      <section class="view" data-view="catalog" id="view-catalog" aria-hidden="true">
+        <div class="view-content" id="catalogViewContent"></div>
+      </section>
 
-        <!-- 4-Step Pills Bar -->
-        <div class="stepper-pills-bar">
-          <div class="step-pill completed">
-            <span class="step-num-badge">✓</span>
-            <span>انتخاب</span>
-          </div>
-          <div class="step-pill completed">
-            <span class="step-num-badge">✓</span>
-            <span>تایید</span>
-          </div>
-          <div class="step-pill active">
-            <span class="step-num-badge">۳</span>
-            <span>پرداخت</span>
-          </div>
-          <div class="step-pill">
-            <span class="step-num-badge">۴</span>
-            <span>تحویل</span>
-          </div>
-        </div>
+      <!-- =====================================================================
+           VIEW 3: PAYMENT (id="view-payment", data-view="payment")
+           ===================================================================== -->
+      <section class="view" data-view="payment" id="view-payment" aria-hidden="true">
+        <div class="payment-viewport-content">
 
-        <!-- Total Amount Banner (Dark Navy) -->
-        <div class="payment-amount-banner">
-          <div class="payment-timer-badge" id="paymentTimerBadge">⏱ ۸۴ ثانیه</div>
-          <div class="payment-banner-label">مبلغ قابل پرداخت</div>
-          <div class="payment-banner-price" id="paymentBannerPrice">
-            ۳۸۸,۰۰۰ <span>تومان</span>
-          </div>
-        </div>
-
-        <!-- 3 Payment Methods Tabs -->
-        <div class="payment-methods-grid">
-          <div class="pay-method-btn active" data-method="card">
-            <div class="pay-method-icon">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
-                <line x1="1" y1="10" x2="23" y2="10"></line>
+          <!-- 1. Header Row (LTR: Back Arrow, Center "داروخانه", Right Signal Icon) -->
+          <div class="payment-header-row">
+            <button type="button" class="btn-payment-back" id="btnPaymentBack" aria-label="انصراف و بازگشت">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
               </svg>
-            </div>
-            <strong>کارت بانکی</strong>
-            <span>کارت را وارد یا نزدیک کنید</span>
-          </div>
-
-          <div class="pay-method-btn" data-method="mobile">
-            <div class="pay-method-icon">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
-                <line x1="12" y1="18" x2="12.01" y2="18"></line>
-              </svg>
-            </div>
-            <strong>پرداخت موبایلی</strong>
-            <span>گوشی را نزدیک کنید</span>
-          </div>
-
-          <div class="pay-method-btn" data-method="qr">
-            <div class="pay-method-icon">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="3" width="7" height="7"></rect>
-                <rect x="14" y="3" width="7" height="7"></rect>
-                <rect x="14" y="14" width="7" height="7"></rect>
-                <rect x="3" y="14" width="7" height="7"></rect>
-              </svg>
-            </div>
-            <strong>اسکن کد QR</strong>
-            <span>با اپ بانکی اسکن کنید</span>
-          </div>
-        </div>
-
-        <!-- Central POS Terminal Card -->
-        <div class="payment-terminal-card">
-          <div class="pos-device-visual">
-            <div class="contactless-waves">
-              <span class="c-wave"></span>
-              <span class="c-wave"></span>
-              <span class="c-wave"></span>
-            </div>
-            <div class="pos-display-screen" id="posScreenAmount">۳۸۸,۰۰۰</div>
-            <div class="pos-card-slot">
-              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="2" y="5" width="20" height="14" rx="2"></rect>
-                <line x1="2" y1="10" x2="22" y2="10"></line>
+            </button>
+            <span class="payment-header-title" id="lblPaymentHeaderTitle">داروخانه</span>
+            <div class="payment-header-signal" aria-hidden="true">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="3" y="16" width="3" height="6" rx="1.5" />
+                <rect x="8" y="12" width="3" height="10" rx="1.5" />
+                <rect x="13" y="7" width="3" height="15" rx="1.5" />
+                <rect x="18" y="2" width="3" height="20" rx="1.5" />
               </svg>
             </div>
           </div>
 
-          <h3 class="pos-prompt-title">کارت را در کارتخوان زیر صفحه وارد کنید</h3>
-          <div class="pos-bouncing-arrow">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <polyline points="19 12 12 19 5 12"></polyline>
-            </svg>
-          </div>
-          <div class="pos-prompt-sub">کارتخوان در پایین‌سمت راست دستگاه قرار دارد</div>
-        </div>
-
-        <!-- Simulation Buttons Row (Discrete for Demo/Testing) -->
-        <div class="payment-simulation-bar">
-          <span>شبیه‌سازی:</span>
-          <button type="button" class="btn-sim-pay success" id="btnSimulatePosSuccess">پرداخت موفق</button>
-          <button type="button" class="btn-sim-pay fail" id="btnSimulatePosError">پرداخت ناموفق</button>
-        </div>
-
-        <!-- Bottom Security & Cancel Row -->
-        <div class="payment-footer-row">
-          <div class="payment-security-shield">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-              <polyline points="9 12 11 14 15 10"></polyline>
-            </svg>
-            <span>پرداخت امن شاپرک · اطلاعات کارت ذخیره نمی‌شود</span>
+          <!-- 2. Instruction Block (Centered) -->
+          <div class="payment-instruction-block">
+            <h1 class="payment-instruction-h1" id="lblSwipeCardH1">لطفاً کارت را بکشید</h1>
+            <div class="payment-instruction-amount" id="lblPaymentAmountSub">
+              <span id="lblAmountLabel">مبلغ:</span>
+              <span id="lblPaymentAmountNumber">۱۲۵,۰۰۰</span>
+              <span id="lblPaymentCurrencyUnit">تومان</span>
+            </div>
           </div>
 
-          <button type="button" id="btnCancelPayment" class="btn-cancel-payment-screen">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-            <span>لغو تراکنش · بازگشت به خانه</span>
-          </button>
+          <!-- 3. POS Illustration (Centered, ~55% width) -->
+          <div class="pos-illustration-stage">
+            <div class="pos-illustration-wrapper" id="posIllustrationWrap">
+              <img class="pos-terminal-img" src="assets/img/pos-illustration.svg"
+                alt="دستگاه پوز کارتخوان و کارت بانکی">
+              <div class="pos-slot-glow-strip" aria-hidden="true"></div>
+            </div>
+          </div>
+
+          <!-- 4. Payment-Method Icons Row (Swipe, Tap, Chip) -->
+          <div class="payment-methods-icons-row" aria-label="روش‌های پرداخت">
+            <div class="pay-method-icon-item" title="کارتخوان مگنت">
+              <svg viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                stroke-linejoin="round">
+                <rect x="6" y="12" width="32" height="20" rx="4" />
+                <line x1="6" y1="18" x2="38" y2="18" />
+                <path d="M28 26l-6 0 M22 26l3 -3 M22 26l3 3" />
+              </svg>
+            </div>
+            <div class="pay-method-icon-item" title="پرداخت بدون تماس">
+              <svg viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M22 24v-8a3 3 0 0 1 6 0v8" />
+                <path d="M16 26v-6a3 3 0 0 1 6 0v6" />
+                <path d="M28 24v-4a3 3 0 0 1 6 0v6" />
+                <path d="M16 26a6 6 0 0 0-6 6v3h24v-6" />
+                <path d="M30 10a12 12 0 0 0-16 0" />
+                <path d="M26 6a16 16 0 0 0-20 0" />
+              </svg>
+            </div>
+            <div class="pay-method-icon-item" title="ورود کارت چیپ‌دار">
+              <svg viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                stroke-linejoin="round">
+                <rect x="10" y="8" width="24" height="28" rx="4" />
+                <rect x="16" y="14" width="12" height="10" rx="2" fill="rgba(83, 43, 140, 0.2)" />
+                <line x1="22" y1="14" x2="22" y2="24" />
+                <line x1="16" y1="19" x2="28" y2="19" />
+                <line x1="6" y1="38" x2="38" y2="38" />
+              </svg>
+            </div>
+          </div>
+
+          <!-- 5 & 6. Bottom Controls: Countdown Ring (right) & Cancel Button (center) -->
+          <div class="payment-bottom-layout">
+            <!-- Countdown Ring -->
+            <div class="countdown-ring-container" id="countdownRingWrap">
+              <svg class="countdown-ring-svg" width="200" height="200" viewBox="0 0 200 200">
+                <circle cx="100" cy="100" r="85" class="countdown-ring-track" />
+                <circle cx="100" cy="100" r="85" class="countdown-ring-progress" id="countdownRingProgress" />
+              </svg>
+              <div class="countdown-ring-content">
+                <span class="countdown-number" id="countdownSecondsNum">۶۰</span>
+                <span class="countdown-label" id="lblCountdownUnit">ثانیه</span>
+              </div>
+            </div>
+
+            <!-- Cancel Button -->
+            <button type="button" class="btn-cancel-pill" id="btnCancelPayment" aria-label="انصراف از پرداخت">
+              <span id="lblCancelBtn">انصراف</span>
+            </button>
+          </div>
+
+          <!-- 7. Inline Error Card (Fake-glass, for POS_ACK declined or DROP_FAIL) -->
+          <div class="payment-error-overlay" id="paymentErrorOverlay" role="dialog" aria-modal="true"
+            aria-hidden="true">
+            <div class="payment-error-card">
+              <div class="error-badge-icon">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="15" y1="9" x2="9" y2="15"></line>
+                  <line x1="9" y1="9" x2="15" y2="15"></line>
+                </svg>
+              </div>
+              <p class="payment-error-text" id="lblPaymentErrorMsg">پرداخت ناموفق بود. لطفاً دوباره تلاش کنید.</p>
+              <div class="payment-error-actions">
+                <button type="button" class="btn-error-retry" id="btnPaymentRetry">تلاش مجدد</button>
+                <button type="button" class="btn-error-cancel" id="btnPaymentErrorCancel">انصراف</button>
+              </div>
+            </div>
+          </div>
+
         </div>
       </section>
 
-      <!-- -----------------------------------------------------------------------
-           SCREEN 5: DISPENSE (تحویل محصول - BONE/CREAM BACKGROUND)
-           ----------------------------------------------------------------------- -->
-      <section id="screen-dispense" class="screen-view dispense-screen">
-        <!-- 4-Step Pills Bar -->
-        <div class="stepper-pills-bar">
-          <div class="step-pill completed">
-            <span class="step-num-badge">✓</span>
-            <span>انتخاب</span>
-          </div>
-          <div class="step-pill completed">
-            <span class="step-num-badge">✓</span>
-            <span>تایید</span>
-          </div>
-          <div class="step-pill completed">
-            <span class="step-num-badge">✓</span>
-            <span>پرداخت</span>
-          </div>
-          <div class="step-pill active" id="dispenseStepPill">
-            <span class="step-num-badge">۴</span>
-            <span>تحویل</span>
-          </div>
-        </div>
+      <!-- =====================================================================
+           VIEW 4: SUCCESS (id="view-success", data-view="success")
+           ===================================================================== -->
+      <section class="view" data-view="success" id="view-success" aria-hidden="true">
+        <div class="success-viewport-content">
 
-        <!-- Dispense Headings -->
-        <div class="dispense-header-text">
-          <h2 class="dispense-status-title" id="dispenseMainTitle">در حال آماده‌سازی سفارش شما...</h2>
-          <div class="dispense-status-sub" id="dispenseMainSub">لطفاً منتظر بمانید، این فرایند حدود ۱۰ ثانیه طول می‌کشد</div>
-        </div>
+          <!-- 1. Background Décor Layer (Static inline SVGs: waves, pills, crosses) -->
+          <div class="success-decor-layer" aria-hidden="true">
+            <!-- Left Wavy Horizontal Lines -->
+            <svg class="decor-wave-left" viewBox="0 0 340 240" fill="none">
+              <path d="M-20 60 C80 20, 140 100, 240 60 C280 44, 320 52, 340 60" stroke="#7C4DBF" stroke-width="2.5"
+                opacity="0.32" />
+              <path d="M-20 110 C80 70, 140 150, 240 110 C280 94, 320 102, 340 110" stroke="#7C4DBF" stroke-width="2.5"
+                opacity="0.22" />
+              <path d="M-20 160 C80 120, 140 200, 240 160 C280 144, 320 152, 340 160" stroke="#7C4DBF"
+                stroke-width="2.5" opacity="0.15" />
+            </svg>
 
-        <!-- Central Progress & Slot Matrix -->
-        <div class="dispense-visual-grid">
-          <!-- Circular Progress Ring / Big Checkmark -->
-          <div class="dispense-progress-box">
-            <div class="dispense-ring-wrap" id="dispenseRingWrap">
-              <svg width="170" height="170" class="dispense-ring-svg">
-                <circle cx="85" cy="85" r="70" class="dispense-ring-bg"></circle>
-                <circle cx="85" cy="85" r="70" class="dispense-ring-progress" id="dispenseRingProgress"></circle>
+            <!-- Right Wavy Horizontal Lines -->
+            <svg class="decor-wave-right" viewBox="0 0 340 240" fill="none">
+              <path d="M0 60 C100 20, 160 100, 260 60 C300 44, 340 52, 360 60" stroke="#7C4DBF" stroke-width="2.5"
+                opacity="0.32" />
+              <path d="M0 110 C100 70, 160 150, 260 110 C300 94, 340 102, 360 110" stroke="#7C4DBF" stroke-width="2.5"
+                opacity="0.22" />
+              <path d="M0 160 C100 120, 160 200, 260 160 C300 144, 340 152, 360 160" stroke="#7C4DBF" stroke-width="2.5"
+                opacity="0.15" />
+            </svg>
+
+            <!-- Scattered Crosses & Pills -->
+            <svg class="decor-elem decor-cross-tl" width="70" height="70" viewBox="0 0 60 60" fill="none">
+              <rect x="25" y="5" width="10" height="50" rx="5" fill="#C43D80" opacity="0.25" />
+              <rect x="5" y="25" width="50" height="10" rx="5" fill="#C43D80" opacity="0.25" />
+            </svg>
+
+            <svg class="decor-elem decor-pill-tl" width="80" height="40" viewBox="0 0 80 40" fill="none">
+              <rect x="2" y="2" width="76" height="36" rx="18" stroke="#7C4DBF" stroke-width="3" opacity="0.28" />
+              <line x1="40" y1="2" x2="40" y2="38" stroke="#7C4DBF" stroke-width="3" opacity="0.28" />
+            </svg>
+
+            <svg class="decor-elem decor-cross-tr" width="60" height="60" viewBox="0 0 60 60" fill="none">
+              <rect x="25" y="5" width="10" height="50" rx="5" fill="#C43D80" opacity="0.22" />
+              <rect x="5" y="25" width="50" height="10" rx="5" fill="#C43D80" opacity="0.22" />
+            </svg>
+
+            <svg class="decor-elem decor-pill-tr" width="80" height="40" viewBox="0 0 80 40" fill="none">
+              <rect x="2" y="2" width="76" height="36" rx="18" stroke="#C43D80" stroke-width="3" opacity="0.24" />
+              <line x1="40" y1="2" x2="40" y2="38" stroke="#C43D80" stroke-width="3" opacity="0.24" />
+            </svg>
+
+            <svg class="decor-elem decor-cross-ml" width="80" height="80" viewBox="0 0 60 60" fill="none">
+              <rect x="25" y="5" width="10" height="50" rx="5" fill="#7C4DBF" opacity="0.2" />
+              <rect x="5" y="25" width="50" height="10" rx="5" fill="#7C4DBF" opacity="0.2" />
+            </svg>
+
+            <svg class="decor-elem decor-cross-mr" width="70" height="70" viewBox="0 0 60 60" fill="none">
+              <rect x="25" y="5" width="10" height="50" rx="5" fill="#7C4DBF" opacity="0.2" />
+              <rect x="5" y="25" width="50" height="10" rx="5" fill="#7C4DBF" opacity="0.2" />
+            </svg>
+
+            <svg class="decor-elem decor-pill-br" width="80" height="40" viewBox="0 0 80 40" fill="none">
+              <rect x="2" y="2" width="76" height="36" rx="18" stroke="#7C4DBF" stroke-width="3" opacity="0.25" />
+              <line x1="40" y1="2" x2="40" y2="38" stroke="#7C4DBF" stroke-width="3" opacity="0.25" />
+            </svg>
+          </div>
+
+          <!-- 2. Header (Right: "داروخانه هوشمند" + Cross SVG, Left: Live Clock) -->
+          <div class="success-header-row">
+            <div class="success-header-clock" id="successLiveClock">۱۴:۳۰</div>
+            <div class="success-header-brand">
+              <span class="success-header-title" id="lblSuccessSmartPharmacy">داروخانه هوشمند</span>
+              <svg class="success-header-cross" width="56" height="56" viewBox="0 0 56 56" fill="none">
+                <rect width="56" height="56" rx="16" fill="var(--primary)" />
+                <path d="M28 14V42M14 28H42" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" />
               </svg>
-              <div class="dispense-percentage-text" id="dispensePercent">۴۵٪</div>
-            </div>
-            <!-- Large Complete Checkmark (shown when ready) -->
-            <div class="dispense-complete-checkmark" id="dispenseCompleteCheck">✓</div>
-          </div>
-
-          <!-- 6x4 Slot Matrix Visual Card (Dark Navy) -->
-          <div class="dispense-matrix-card">
-            <div class="dispense-slots-grid" id="dispenseMatrixGrid">
-              <!-- Rendered via JS -->
             </div>
           </div>
-        </div>
 
-        <!-- 4 Status Step Cards (2x2 Grid) -->
-        <div class="dispense-steps-grid">
-          <div class="dispense-step-card completed" id="dispPhase1">
-            <div class="step-card-text">
-              <strong>پرداخت تایید شد</strong>
-              <span id="dispenseTrxCode">کد پیگیری ۸۸۲۱۴</span>
+          <!-- 3. Center Success Badge (Layered circles, checkmark, 8 twinkling sparkles) -->
+          <div class="success-badge-stage">
+            <div class="success-badge-container" id="successBadgeWrap">
+              <!-- Outermost Soft Translucent Halo (~420px) -->
+              <div class="badge-halo-outer"></div>
+              <!-- Mid Soft Translucent Halo (~360px) -->
+              <div class="badge-halo-mid"></div>
+              <!-- Solid White Ring (~316px) -->
+              <div class="badge-ring-white">
+                <!-- Main Disc (~300px) with 135deg gradient -->
+                <div class="badge-disc-gradient">
+                  <!-- White Checkmark SVG (~120px) -->
+                  <svg class="badge-check-svg" viewBox="0 0 120 120" width="120" height="120">
+                    <path class="badge-check-path" id="successCheckPath" d="M30 64 L52 86 L92 40" stroke="#FFFFFF"
+                      stroke-width="16" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+                  </svg>
+                </div>
+              </div>
+
+              <!-- 8 Twinkling Sparkles (Max 8, Transform & Opacity Only) -->
+              <div class="sparkle sparkle-1" aria-hidden="true"></div>
+              <div class="sparkle sparkle-2" aria-hidden="true"></div>
+              <div class="sparkle sparkle-3" aria-hidden="true"></div>
+              <div class="sparkle sparkle-4" aria-hidden="true"></div>
+              <div class="sparkle sparkle-5" aria-hidden="true"></div>
+              <div class="sparkle sparkle-6" aria-hidden="true"></div>
+              <div class="sparkle sparkle-7" aria-hidden="true"></div>
+              <div class="sparkle sparkle-8" aria-hidden="true"></div>
             </div>
-            <div class="step-status-icon">✓</div>
           </div>
 
-          <div class="dispense-step-card active" id="dispPhase2">
-            <div class="step-card-text">
-              <strong id="dispenseArmText">بازوی رباتیک به اسلات A1 رفت</strong>
-              <span>برداشتن محصول</span>
-            </div>
-            <div class="step-status-icon">✓</div>
+          <!-- 4. Text Block (Centered below badge) -->
+          <div class="success-text-block">
+            <h1 class="success-title-h1" id="lblSuccessThankYou">از خرید شما متشکریم</h1>
+            <p class="success-subtitle" id="lblSuccessInstruction">لطفاً خرید خود را از محفظه پایین بردارید</p>
           </div>
 
-          <div class="dispense-step-card" id="dispPhase3">
-            <div class="step-card-text">
-              <strong>تایید اسکن بارکد و تاریخ انقضا</strong>
-              <span>کنترل کیفیت خودکار</span>
-            </div>
-            <div class="step-status-icon">✓</div>
-          </div>
-
-          <div class="dispense-step-card" id="dispPhase4">
-            <div class="step-card-text">
-              <strong>آماده برداشت از درب تحویل</strong>
-              <span>درب پایین دستگاه</span>
-            </div>
-            <div class="step-status-icon">✓</div>
-          </div>
-        </div>
-
-        <!-- Bottom Dispense Door Status Bar -->
-        <div class="dispense-door-bar">
-          <div class="door-info-col">
-            <strong id="dispenseDoorStatus">درب تحویل: در حال باز شدن...</strong>
-            <span id="dispenseDoorSub">لطفاً پس از باز شدن، بسته را بردارید</span>
-          </div>
-
-          <div class="door-arrow-icon">
-            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <polyline points="19 12 12 19 5 12"></polyline>
+          <!-- 5. Pickup Guide (Architecture: "انیمیشن نوری پایین صفحه") -->
+          <div class="pickup-guide-container" aria-hidden="true">
+            <svg class="pickup-chevron-svg" width="120" height="48" viewBox="0 0 120 48" fill="none">
+              <path d="M10 8 L60 38 L110 8" stroke="url(#pickupChevronGrad)" stroke-width="12" stroke-linecap="round"
+                stroke-linejoin="round" />
+              <defs>
+                <linearGradient id="pickupChevronGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#7C4DBF" />
+                  <stop offset="50%" stop-color="#C43D80" />
+                  <stop offset="100%" stop-color="#7C4DBF" />
+                </linearGradient>
+              </defs>
             </svg>
+            <div class="pickup-glow-band"></div>
           </div>
 
-          <button type="button" id="btnDispenseTaken" class="btn-dispense-confirm" disabled>
-            <span>محصول را برداشتم</span>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-          </button>
+          <!-- 6. Receipt Status Line -->
+          <div class="receipt-status-line" id="receiptStatusLine">
+            <span id="lblReceiptStatus">رسید شما در حال چاپ است...</span>
+          </div>
+
         </div>
       </section>
-
-      <!-- -----------------------------------------------------------------------
-           SCREEN 6: SUCCESS (صفحه تشکر و فاکتور نهایی)
-           ----------------------------------------------------------------------- -->
-      <section id="screen-success" class="screen-view success-screen">
-        <div class="success-top-hero">
-          <div class="success-huge-checkmark">✓</div>
-          <h2 class="success-hero-title">با تشکر از خرید شما</h2>
-          <div class="success-hero-sub">سلامت باشید! تراکنش با موفقیت ثبت شد.</div>
-        </div>
-
-        <!-- Main Content: Left Column (Actions & Reminder), Right Column (Paper Receipt) -->
-        <div class="success-content-grid">
-          <!-- Left Column -->
-          <div class="success-left-col">
-            <div class="success-receipt-actions-card">
-              <div class="receipt-action-label">دریافت رسید</div>
-              <div class="receipt-btns-row">
-                <button type="button" class="btn-receipt-type" id="btnReceiptSms">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                  <span>پیامک</span>
-                </button>
-                <button type="button" class="btn-receipt-type" id="btnReceiptQr">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                  <span>کد QR</span>
-                </button>
-                <button type="button" class="btn-receipt-type" id="btnReceiptPrint">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-                  <span>چاپی</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Dosage Reminder Card -->
-            <div class="success-dosage-reminder-card">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M10.5 20.5l10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path>
-                <path d="m8.5 8.5 7 7"></path>
-              </svg>
-              <span>یادآوری مصرف: هر ۶ ساعت ۱ قرص — حداکثر ۴ قرص در روز</span>
-            </div>
-          </div>
-
-          <!-- Right Column: Realistic Paper Receipt -->
-          <div class="paper-receipt-card">
-            <div class="receipt-header-row">
-              <span id="successReceiptTrx">TX-88214</span>
-              <span>رسید خرید</span>
-            </div>
-            <div class="receipt-item-row">
-              <span id="successReceiptItem">استامینوفن ۵۰۰ × ۲</span>
-              <span id="successReceiptItemPrice">۹۶,۰۰۰</span>
-            </div>
-            <div class="receipt-tax-row">
-              <span>مالیات بر ارزش افزوده</span>
-              <span>شامل</span>
-            </div>
-            <div class="receipt-divider"></div>
-            <div class="receipt-total-row">
-              <strong>جمع کل</strong>
-              <div class="rec-price" id="successReceiptTotal">۹۶,۰۰۰ تومان</div>
-            </div>
-            <div class="receipt-footer-meta" id="successReceiptMeta">
-              ۲۰ آبان ۱۴۰۵ · کارت **** ۶۰۳۷
-            </div>
-          </div>
-        </div>
-
-        <!-- Star Rating Card -->
-        <div class="success-rating-card">
-          <div class="rating-label">تجربه خرید را ارزیابی کنید</div>
-          <div class="star-rating-group" id="starRatingGroup">
-            <button type="button" class="star-btn" data-star="1">★</button>
-            <button type="button" class="star-btn" data-star="2">★</button>
-            <button type="button" class="star-btn" data-star="3">★</button>
-            <button type="button" class="star-btn" data-star="4">★</button>
-            <button type="button" class="star-btn" data-star="5">★</button>
-          </div>
-        </div>
-
-        <!-- Telehealth Consultation Dark Banner -->
-        <div class="success-telehealth-banner">
-          <div class="telehealth-text">
-            <strong>سؤالی درباره مصرف دارید؟</strong>
-            <span class="highlight-link">تماس تصویری با داروساز</span>
-            <div>رایگان · پاسخگویی ۸ صبح تا ۱۲ شب</div>
-          </div>
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polygon points="23 7 16 12 23 17 23 7"></polygon>
-            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
-          </svg>
-        </div>
-
-        <!-- Bottom Finish & Timer Bar -->
-        <div class="success-bottom-bar">
-          <div class="success-countdown-badge" id="successCountdownBadge">۲۸</div>
-          <button type="button" id="btnSuccessDone" class="btn-success-finish">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-            </svg>
-            <span>پایان و بازگشت به خانه</span>
-          </button>
-        </div>
-      </section>
-
-    </main>
-
-    <!-- =========================================================================
-         ADMIN & OPERATOR DASHBOARD MODAL
-         ========================================================================= -->
-    <div id="adminModal" class="admin-modal-overlay">
-
-      <!-- View A: PIN Code Keypad (BONE/CREAM BACKGROUND) -->
-      <div id="adminPinView" class="admin-pin-container">
-        <button type="button" id="btnPinClose" class="btn-pin-exit-kiosk">بازگشت به کیوسک ✕</button>
-
-        <div class="pin-lock-squircle">
-          <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-          </svg>
-        </div>
-
-        <h2 class="pin-title">ورود اپراتور</h2>
-        <p class="pin-subtitle">کد ۴ رقمی اپراتور را وارد کنید (دمو: ۱۲۳۴)</p>
-
-        <!-- 4 PIN Dots -->
-        <div class="pin-dots-row">
-          <div class="pin-dot" id="pinDot0"></div>
-          <div class="pin-dot" id="pinDot1"></div>
-          <div class="pin-dot" id="pinDot2"></div>
-          <div class="pin-dot" id="pinDot3"></div>
-        </div>
-
-        <!-- 3x4 Keypad matching image copy 11.png -->
-        <div class="pin-keypad">
-          <button type="button" class="keypad-btn" data-key="1">۱</button>
-          <button type="button" class="keypad-btn" data-key="2">۲</button>
-          <button type="button" class="keypad-btn" data-key="3">۳</button>
-          <button type="button" class="keypad-btn" data-key="4">۴</button>
-          <button type="button" class="keypad-btn" data-key="5">۵</button>
-          <button type="button" class="keypad-btn" data-key="6">۶</button>
-          <button type="button" class="keypad-btn" data-key="7">۷</button>
-          <button type="button" class="keypad-btn" data-key="8">۸</button>
-          <button type="button" class="keypad-btn" data-key="9">۹</button>
-          <button type="button" class="keypad-btn btn-action" id="btnPinSubmit">➔</button>
-          <button type="button" class="keypad-btn" data-key="0">۰</button>
-          <button type="button" class="keypad-btn btn-action" id="btnPinClear">✕</button>
-        </div>
-
-        <!-- RFID Tap demo button -->
-        <button type="button" id="btnDemoRfid" class="pin-rfid-row">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="2" y="5" width="20" height="14" rx="2"></rect>
-            <line x1="2" y1="10" x2="22" y2="10"></line>
-          </svg>
-          <span>یا کارت RFID اپراتور را نزدیک کنید</span>
-        </button>
-      </div>
-
-      <!-- View B: Full Unlocked Admin Dashboard (image copy 6, 7, 8, 9, 10.png) -->
-      <div id="adminDashboardView" class="admin-dashboard-container" style="display: none;">
-        <!-- Header -->
-        <div class="admin-header-row">
-          <div class="admin-operator-meta">
-            <div class="operator-avatar">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-            </div>
-            <div class="operator-info">
-              <strong>مهندس رضایی</strong>
-              <span>اپراتور شیفت · کد OP-07</span>
-            </div>
-          </div>
-
-          <div class="admin-brand-center">
-            <div class="admin-brand-name">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--mint-primary)" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-              <span>داروخانه دکتر قاسمی</span>
-            </div>
-            <div class="admin-brand-sub">ایستگاه هوشمند ۲۴ ساعته · Smart Rx 24</div>
-          </div>
-        </div>
-
-        <!-- Header Status Pills -->
-        <div class="admin-status-pills">
-          <div class="admin-header-pill online">
-            <span class="pulsing-dot"></span>
-            <span>آنلاین · همگام‌سازی ۲ دقیقه پیش</span>
-          </div>
-          <div class="admin-header-pill">Firmware v3.4.1</div>
-          <div class="admin-header-pill">سرویس‌دهی عادی</div>
-        </div>
-
-        <!-- 4 Nav Tabs (داشبورد, اسلات‌ها, کنترل دستگاه, تراکنش‌ها) -->
-        <div class="admin-nav-tabs-bar">
-          <button type="button" class="admin-tab-nav-btn active" data-tab="dashboard">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
-            <span>داشبورد</span>
-          </button>
-          <button type="button" class="admin-tab-nav-btn" data-tab="slots">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-            <span>اسلات‌ها</span>
-          </button>
-          <button type="button" class="admin-tab-nav-btn" data-tab="control">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-            <span>کنترل دستگاه</span>
-          </button>
-          <button type="button" class="admin-tab-nav-btn" data-tab="transactions">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-            <span>تراکنش‌ها</span>
-          </button>
-        </div>
-
-        <!-- Panes Viewport -->
-        <div class="admin-panes-viewport">
-
-          <!-- TAB 1: DASHBOARD -->
-          <div id="adminTabDashboard" class="admin-tab-pane active">
-            <!-- Navy Sales Card -->
-            <div class="admin-sales-card">
-              <div class="sales-card-header">
-                <div class="sales-header-text">
-                  <span>فروش امروز</span>
-                  <h3>۴,۸۷۰,۰۰۰ <small>تومان</small></h3>
-                </div>
-                <div class="sales-growth-pill">▲ ۱۸٪ نسبت به دیروز</div>
-              </div>
-              <!-- Bar Chart -->
-              <div class="sales-chart-wrap">
-                <div class="sales-bars-row">
-                  <div class="sales-bar" style="height: 35%;"></div>
-                  <div class="sales-bar" style="height: 20%;"></div>
-                  <div class="sales-bar" style="height: 15%;"></div>
-                  <div class="sales-bar" style="height: 40%;"></div>
-                  <div class="sales-bar" style="height: 70%;"></div>
-                  <div class="sales-bar" style="height: 90%;"></div>
-                  <div class="sales-bar" style="height: 60%;"></div>
-                  <div class="sales-bar" style="height: 65%;"></div>
-                  <div class="sales-bar" style="height: 85%;"></div>
-                  <div class="sales-bar" style="height: 100%;"></div>
-                  <div class="sales-bar" style="height: 75%;"></div>
-                  <div class="sales-bar" style="height: 45%;"></div>
-                </div>
-                <div class="sales-chart-labels">
-                  <span>۰۸</span>
-                  <span>۱۲</span>
-                  <span>۱۶</span>
-                  <span>۲۰</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- 2-Card Metrics Row -->
-            <div class="admin-metrics-row">
-              <div class="admin-metric-card">
-                <div class="metric-label">تراکنش موفق</div>
-                <div class="metric-val-big">۶۳</div>
-                <div class="metric-sub-note">از ۶۷ تلاش · ۹۴٪</div>
-              </div>
-              <div class="admin-metric-card">
-                <div class="metric-label">میانگین زمان خرید</div>
-                <div class="metric-val-big">۴۸ <small style="font-size: 20px;">ثانیه</small></div>
-                <div class="metric-sub-note">▼ ۶ ثانیه بهبود</div>
-              </div>
-            </div>
-
-            <!-- Storage & Environment -->
-            <div class="admin-storage-env-card">
-              <div class="storage-env-title">محیط نگهداری</div>
-              <div class="sensor-row">
-                <div class="sensor-info-col">
-                  <strong>۲۲.۴°C</strong>
-                  <span>بازه مجاز ۱۵-۲۵</span>
-                </div>
-                <div class="sensor-gauge-bar"><div class="sensor-gauge-fill" style="width: 65%;"></div></div>
-              </div>
-              <div class="sensor-row">
-                <div class="sensor-info-col">
-                  <strong>۴۱٪</strong>
-                  <span>رطوبت نسبی</span>
-                </div>
-                <div class="sensor-gauge-bar"><div class="sensor-gauge-fill" style="width: 41%;"></div></div>
-              </div>
-              <div class="sensor-row">
-                <div class="sensor-info-col">
-                  <strong>بسته</strong>
-                  <span>درب سرویس</span>
-                </div>
-                <div class="sensor-gauge-bar"><div class="sensor-gauge-fill" style="width: 100%; background: var(--mint-primary);"></div></div>
-              </div>
-            </div>
-
-            <!-- Active Alerts -->
-            <div class="admin-alerts-card">
-              <div class="alerts-header">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>
-                <span>هشدارهای فعال</span>
-              </div>
-              <div class="alert-item-box danger">
-                <span>۲ اسلات خالی</span>
-                <span>B2, D3</span>
-              </div>
-              <div class="alert-item-box warning">
-                <span>۴ اسلات رو به اتمام</span>
-                <span>A2, C2, E2, F2</span>
-              </div>
-              <div class="alert-item-box orange">
-                <span>گیر کردن محصول در C2</span>
-                <span>۱۲:۴۱ · مبلغ برگشت داده شد</span>
-              </div>
-              <div class="alert-item-box neutral">
-                <span>رول کاغذ رسید</span>
-                <span>حدود ۲۲٪ باقی‌مانده</span>
-              </div>
-              <button type="button" class="btn-manage-inventory-fast" id="btnGoToSlots">مدیریت موجودی</button>
-            </div>
-
-            <!-- Top Selling -->
-            <div class="admin-top-sellers-card">
-              <div class="storage-env-title">پرفروش‌ترین‌های امروز</div>
-              <div class="top-seller-row">
-                <span>۱. استامینوفن ۵۰۰</span>
-                <strong>۱۴ عدد</strong>
-              </div>
-              <div class="sensor-gauge-bar" style="width: 100%; margin-bottom: 14px;"><div class="sensor-gauge-fill" style="width: 90%;"></div></div>
-
-              <div class="top-seller-row">
-                <span>۲. ویتامین C جوشان</span>
-                <strong>۹ عدد</strong>
-              </div>
-              <div class="sensor-gauge-bar" style="width: 100%;"><div class="sensor-gauge-fill" style="width: 60%;"></div></div>
-            </div>
-          </div>
-
-          <!-- TAB 2: SLOTS (اسلات‌ها) -->
-          <div id="adminTabSlots" class="admin-tab-pane">
-            <div class="slots-legend-row">
-              <strong>نقشهٔ اسلات‌ها (۲۴ اسلات)</strong>
-              <div class="catalog-indicators">
-                <div class="ind-item"><span class="ind-dot" style="background: var(--mint-primary);"></span>کافی</div>
-                <div class="ind-item"><span class="ind-dot" style="background: var(--amber-primary);"></span>محدود</div>
-                <div class="ind-item"><span class="ind-dot" style="background: var(--danger-primary);"></span>خالی</div>
-              </div>
-            </div>
-
-            <!-- 6x4 Grid of Slots -->
-            <div class="slots-grid-24" id="adminSlotsGrid">
-              <!-- Rendered via JS -->
-            </div>
-
-            <!-- Slot Editor Drawer -->
-            <div class="slot-editor-drawer" id="slotEditorDrawer">
-              <div class="drawer-empty-state" id="drawerEmptyState">
-                یک اسلات را برای ویرایش انتخاب کنید
-              </div>
-              <div class="drawer-active-content" id="drawerActiveContent" style="display: none;">
-                <div class="drawer-header-info">
-                  <div class="drawer-meta-title">
-                    <span id="drawerSlotCode">اسلات A2 · PX-1051</span>
-                    <h4 id="drawerSlotTitle">ژلوفن ۴۰۰</h4>
-                    <span id="drawerSlotMeta">۹۶,۰۰۰ تومان · انقضا: ۱۴۰۶/۰۸</span>
-                  </div>
-                  <div class="drawer-pack-preview" id="drawerPackPreview"></div>
-                </div>
-
-                <div class="drawer-adjuster-row">
-                  <span>موجودی فعلی:</span>
-                  <div class="qty-counter-group">
-                    <button type="button" class="btn-qty" id="btnAdminStockMinus">−</button>
-                    <span class="qty-number" id="adminStockVal">۱۰</span>
-                    <button type="button" class="btn-qty" id="btnAdminStockPlus">+</button>
-                  </div>
-                </div>
-
-                <div class="drawer-actions-btns">
-                  <button type="button" class="btn-drawer-full" id="btnAdminRestock30">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"></path></svg>
-                    <span>شارژ کامل (۳۰)</span>
-                  </button>
-                  <button type="button" class="btn-drawer-outline" id="btnAdminToggleSlot">غیرفعال‌سازی</button>
-                  <button type="button" class="btn-drawer-outline" id="btnAdminTestMotor">تست موتور اسلات</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- TAB 3: DEVICE CONTROL (کنترل دستگاه) -->
-          <div id="adminTabControl" class="admin-tab-pane">
-            <div class="control-grid-layout">
-              <!-- Modes Card -->
-              <div class="control-modes-card">
-                <div class="control-section-title">حالت‌های عملیاتی</div>
-
-                <div class="toggle-switch-row">
-                  <div class="toggle-label-text">
-                    <strong>حالت تعمیرات</strong>
-                    <span>نمایش «موقتاً خارج از سرویس» به مشتری</span>
-                  </div>
-                  <label class="switch-control">
-                    <input type="checkbox" id="toggleMaintenance">
-                    <span class="slider-track"></span>
-                  </label>
-                </div>
-
-                <div class="toggle-switch-row">
-                  <div class="toggle-label-text">
-                    <strong>اتصال به سرور ابری</strong>
-                    <span>همگام‌سازی قیمت، موجودی و تراکنش‌ها</span>
-                  </div>
-                  <label class="switch-control">
-                    <input type="checkbox" id="toggleCloudSync" checked>
-                    <span class="slider-track"></span>
-                  </label>
-                </div>
-
-                <div class="toggle-switch-row">
-                  <div class="toggle-label-text">
-                    <strong>راهنمای صوتی پیش‌فرض</strong>
-                    <span>برای کاربران کم‌بینا</span>
-                  </div>
-                  <label class="switch-control">
-                    <input type="checkbox" id="toggleDefaultVoice" checked>
-                    <span class="slider-track"></span>
-                  </label>
-                </div>
-
-                <div class="toggle-switch-row">
-                  <div class="toggle-label-text">
-                    <strong>حالت حریم خصوصی پیش‌فرض</strong>
-                    <span>محو نام داروهای حساس</span>
-                  </div>
-                  <label class="switch-control">
-                    <input type="checkbox" id="toggleDefaultPrivacy">
-                    <span class="slider-track"></span>
-                  </label>
-                </div>
-              </div>
-
-              <!-- Hardware Sliders -->
-              <div class="control-sliders-card">
-                <div class="control-section-title">تنظیمات سخت‌افزار</div>
-                <div class="slider-setting-row">
-                  <strong>دمای هدف یخچال: <span id="valFridgeTemp">۲۲°C</span></strong>
-                  <input type="range" id="sliderFridgeTemp" min="4" max="25" value="22">
-                </div>
-                <div class="slider-setting-row">
-                  <strong>روشنایی نمایشگر: <span id="valBrightness">۷۷٪</span></strong>
-                  <input type="range" id="sliderBrightness" min="10" max="100" value="77">
-                </div>
-              </div>
-
-              <!-- Quick Commands -->
-              <div class="control-commands-card">
-                <div class="control-section-title">فرمان‌های سریع</div>
-                <button type="button" class="command-btn-item" id="btnCmdOpenDoor">
-                  <span>باز کردن درب سرویس</span>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>
-                </button>
-
-                <button type="button" class="command-btn-item" id="btnCmdCalibrate">
-                  <span>کالیبراسیون بازو</span>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"></path></svg>
-                </button>
-
-                <button type="button" class="command-btn-item" id="btnCmdSync">
-                  <span>همگام‌سازی دستی</span>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-                </button>
-
-                <button type="button" class="command-btn-item" id="btnCmdTestPrinter">
-                  <span>تست چاپگر</span>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-                </button>
-
-                <button type="button" class="command-btn-item danger" id="btnCmdReboot">
-                  <span>راه‌اندازی مجدد</span>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- TAB 4: TRANSACTIONS (تراکنش‌ها) -->
-          <div id="adminTabTransactions" class="admin-tab-pane">
-            <div class="trx-header-controls">
-              <strong>تراکنش‌های امروز</strong>
-              <div class="trx-filter-pills-row">
-                <button type="button" class="trx-pill-btn active" data-filter="ALL">همه</button>
-                <button type="button" class="trx-pill-btn" data-filter="SUCCESS">موفق</button>
-                <button type="button" class="trx-pill-btn" data-filter="ERROR">خطا / برگشتی</button>
-              </div>
-            </div>
-
-            <div class="admin-transactions-table-card">
-              <table class="admin-clean-table">
-                <thead>
-                  <tr>
-                    <th>زمان</th>
-                    <th>شناسه</th>
-                    <th>محصول</th>
-                    <th>اسلات</th>
-                    <th>مبلغ</th>
-                    <th>روش</th>
-                    <th>وضعیت</th>
-                  </tr>
-                </thead>
-                <tbody id="adminTrxTableBody">
-                  <!-- Populated via admin-dashboard.js -->
-                </tbody>
-              </table>
-
-              <div class="trx-table-footer-row">
-                <span>همگام‌سازی خودکار با سرور ابری هر ۵ دقیقه</span>
-                <button type="button" class="btn-export-excel" id="btnExportExcel">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                  <span>خروجی Excel</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Admin Toast Notification -->
-        <div class="admin-toast-feedback" id="adminToast">درب سرویس باز شد ✓</div>
-
-        <!-- Persistent Admin Footer -->
-        <div class="admin-footer-bar">
-          <button type="button" id="btnExitAdmin" class="btn-exit-admin-client">
-            <span>خروج و بازگشت به حالت مشتری</span>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
-          </button>
-          <button type="button" id="btnLockAdmin" class="btn-lock-admin-panel">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-            <span>قفل پنل</span>
-          </button>
-        </div>
-      </div>
 
     </div>
 
-  </div>
+    <!-- LED Guide Strip on Right Edge of Screen (Architecture Specification) -->
+    <div class="led-guide-strip" id="ledGuideStrip" aria-hidden="true"></div>
 
-  <!-- Scripts: Vanilla JS, Zero Overhead -->
-  <script src="js/audio.js"></script>
-  <script src="js/admin-dashboard.js"></script>
-  <script src="js/kiosk-app.js"></script>
+  </main>
+
+  <!-- ES6 Vanilla Entry Module -->
+  <script type="module" src="js/main.js"></script>
 </body>
+
 </html>
