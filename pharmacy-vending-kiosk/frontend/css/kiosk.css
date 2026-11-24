@@ -11,8 +11,7 @@
    ------------------------------------------------------------------------- */
 @font-face {
   font-family: 'Vazirmatn';
-  src: local('Vazirmatn'), local('Vazirmatn Regular'), local('Vazirmatn-Regular'),
-       url('../assets/fonts/Vazirmatn-Regular.ttf') format('truetype');
+  src: url('../assets/fonts/Vazirmatn-Regular.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -20,8 +19,7 @@
 
 @font-face {
   font-family: 'Vazirmatn';
-  src: local('Vazirmatn Medium'), local('Vazirmatn-Medium'),
-       url('../assets/fonts/Vazirmatn-Medium.ttf') format('truetype');
+  src: url('../assets/fonts/Vazirmatn-Medium.woff2') format('woff2');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
@@ -29,8 +27,7 @@
 
 @font-face {
   font-family: 'Vazirmatn';
-  src: local('Vazirmatn Bold'), local('Vazirmatn-Bold'),
-       url('../assets/fonts/Vazirmatn-Bold.ttf') format('truetype');
+  src: url('../assets/fonts/Vazirmatn-Bold.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -38,8 +35,7 @@
 
 @font-face {
   font-family: 'Vazirmatn';
-  src: local('Vazirmatn Black'), local('Vazirmatn-Black'),
-       url('../assets/fonts/Vazirmatn-Black.ttf') format('truetype');
+  src: url('../assets/fonts/Vazirmatn-Black.woff2') format('woff2');
   font-weight: 900;
   font-style: normal;
   font-display: swap;
@@ -108,7 +104,7 @@ body {
 /* -------------------------------------------------------------------------
    4. KIOSK FIXED STAGE (1080 × 1920 Portrait)
    ------------------------------------------------------------------------- */
-#kioskRoot {
+/* #kioskRoot {
   width: 1080px;
   height: 1920px;
   position: absolute;
@@ -119,7 +115,25 @@ body {
   background-color: var(--bg);
   display: flex;
   flex-direction: column;
+} */
+
+#kioskRoot {
+  width: 1080px;
+  height: 1920px;
+  position: absolute;
+
+  /* Center the kiosk correctly in RTL and LTR */
+  top: 50%;
+  left: 50%;
+  right: auto;
+
+  transform: translate(-50%, -50%);
+  overflow: hidden;
+  background-color: var(--bg);
+  display: flex;
+  flex-direction: column;
 }
+
 
 /* -------------------------------------------------------------------------
    5. HEADER (RTL: Logo+Wordmark Right, Ghost Controls Left)
@@ -1238,7 +1252,8 @@ body {
   z-index: 10;
   flex-shrink: 0;
   padding-inline: 4px;
-  direction: ltr; /* Clock on left, brand on right as in mockup */
+  direction: ltr;
+  /* Clock on left, brand on right as in mockup */
 }
 
 .success-header-clock {
@@ -1360,6 +1375,7 @@ body {
     transform: scale(0.92);
     opacity: 0.85;
   }
+
   100% {
     transform: scale(1);
     opacity: 1;
@@ -1370,6 +1386,7 @@ body {
   0% {
     stroke-dashoffset: 120;
   }
+
   100% {
     stroke-dashoffset: 0;
   }
@@ -1386,24 +1403,86 @@ body {
 }
 
 @keyframes sparkleTwinkle {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 0;
     transform: scale(0.4);
   }
+
   50% {
     opacity: 1;
     transform: scale(1.2);
   }
 }
 
-.sparkle-1 { width: 10px; height: 10px; top: 16%; left: 24%; animation-delay: 0s; box-shadow: 0 0 10px rgba(255, 255, 255, 0.8); }
-.sparkle-2 { width: 6px; height: 6px; top: 8%; left: 52%; animation-delay: 0.6s; }
-.sparkle-3 { width: 12px; height: 12px; top: 20%; left: 82%; animation-delay: 1.2s; box-shadow: 0 0 12px rgba(255, 255, 255, 0.85); }
-.sparkle-4 { width: 8px; height: 8px; top: 48%; left: 93%; animation-delay: 0.3s; }
-.sparkle-5 { width: 10px; height: 10px; top: 78%; left: 82%; animation-delay: 1.8s; box-shadow: 0 0 10px rgba(255, 255, 255, 0.8); }
-.sparkle-6 { width: 7px; height: 7px; top: 90%; left: 50%; animation-delay: 0.9s; }
-.sparkle-7 { width: 12px; height: 12px; top: 78%; left: 16%; animation-delay: 1.5s; box-shadow: 0 0 12px rgba(255, 255, 255, 0.85); }
-.sparkle-8 { width: 6px; height: 6px; top: 48%; left: 6%; animation-delay: 2.1s; }
+.sparkle-1 {
+  width: 10px;
+  height: 10px;
+  top: 16%;
+  left: 24%;
+  animation-delay: 0s;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+}
+
+.sparkle-2 {
+  width: 6px;
+  height: 6px;
+  top: 8%;
+  left: 52%;
+  animation-delay: 0.6s;
+}
+
+.sparkle-3 {
+  width: 12px;
+  height: 12px;
+  top: 20%;
+  left: 82%;
+  animation-delay: 1.2s;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.85);
+}
+
+.sparkle-4 {
+  width: 8px;
+  height: 8px;
+  top: 48%;
+  left: 93%;
+  animation-delay: 0.3s;
+}
+
+.sparkle-5 {
+  width: 10px;
+  height: 10px;
+  top: 78%;
+  left: 82%;
+  animation-delay: 1.8s;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+}
+
+.sparkle-6 {
+  width: 7px;
+  height: 7px;
+  top: 90%;
+  left: 50%;
+  animation-delay: 0.9s;
+}
+
+.sparkle-7 {
+  width: 12px;
+  height: 12px;
+  top: 78%;
+  left: 16%;
+  animation-delay: 1.5s;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.85);
+}
+
+.sparkle-8 {
+  width: 6px;
+  height: 6px;
+  top: 48%;
+  left: 6%;
+  animation-delay: 2.1s;
+}
 
 /* Static Background Décor Layer (Zero GPU Cost) */
 .success-decor-layer {
@@ -1435,13 +1514,43 @@ body {
   pointer-events: none;
 }
 
-.decor-cross-tl { top: 12%; inset-inline-start: 12%; }
-.decor-pill-tl { top: 22%; inset-inline-start: 6%; transform: rotate(-35deg); }
-.decor-cross-tr { top: 14%; inset-inline-end: 14%; }
-.decor-pill-tr { top: 26%; inset-inline-end: 8%; transform: rotate(35deg); }
-.decor-cross-ml { top: 56%; inset-inline-start: 8%; }
-.decor-cross-mr { top: 58%; inset-inline-end: 10%; }
-.decor-pill-br { top: 68%; inset-inline-end: 10%; transform: rotate(-25deg); }
+.decor-cross-tl {
+  top: 12%;
+  inset-inline-start: 12%;
+}
+
+.decor-pill-tl {
+  top: 22%;
+  inset-inline-start: 6%;
+  transform: rotate(-35deg);
+}
+
+.decor-cross-tr {
+  top: 14%;
+  inset-inline-end: 14%;
+}
+
+.decor-pill-tr {
+  top: 26%;
+  inset-inline-end: 8%;
+  transform: rotate(35deg);
+}
+
+.decor-cross-ml {
+  top: 56%;
+  inset-inline-start: 8%;
+}
+
+.decor-cross-mr {
+  top: 58%;
+  inset-inline-end: 10%;
+}
+
+.decor-pill-br {
+  top: 68%;
+  inset-inline-end: 10%;
+  transform: rotate(-25deg);
+}
 
 /* Text Block (Centered below badge) */
 .success-text-block {
@@ -1483,9 +1592,12 @@ body {
 }
 
 @keyframes pickupGuidePulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 0.35;
   }
+
   50% {
     opacity: 0.95;
   }
