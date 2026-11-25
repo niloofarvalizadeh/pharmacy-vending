@@ -1,14 +1,14 @@
-/**
- * CRC-16/CCITT-FALSE Implementation
- * Polynomial: 0x1021 (x^16 + x^12 + x^5 + 1)
- * Initial Value: 0xFFFF
- * RefIn: false, RefOut: false
- * XorOut: 0x0000
- *
- * Test Vector:
- * Input (hex): AA 01 04 00 64 02 07 01
- * Expected CRC: 0xEC9E (High: 0xEC, Low: 0x9E)
- */
+
+
+
+
+
+
+
+
+
+
+
 
 'use strict';
 
@@ -52,13 +52,14 @@ function computeCRC16(buffer, offset = 0, length = null) {
 /**
  * Verifies that the CRC16 stored at the end of a buffer matches the computed CRC16
  * @param {Buffer} buffer Complete frame including the 2-byte CRC at the end
+ * @param {number} [offset=0] Offset to start computing CRC from (e.g. 1 to skip HEAD byte)
  * @returns {boolean} True if CRC is valid
  */
-function verifyCRC16(buffer) {
-  if (!buffer || buffer.length < 2) return false;
-  const payloadLen = buffer.length - 2;
-  const computed = computeCRC16(buffer, 0, payloadLen);
-  const received = buffer.readUInt16BE(payloadLen);
+function verifyCRC16(buffer, offset = 0) {
+  if (!buffer || buffer.length < offset + 2) return false;
+  const payloadLen = buffer.length - offset - 2;
+  const computed = computeCRC16(buffer, offset, payloadLen);
+  const received = buffer.readUInt16BE(buffer.length - 2);
   return computed === received;
 }
 

@@ -1,10 +1,3 @@
-/**
- * Pharmacy Vending Kiosk - Main Backend Server
- * High Performance, Pure Zero-Overhead HTTP & WebSocket Server (Node.js Native + ws)
- * Supports: 6-Screen Customer Flow, Full Transaction Lifecycle,
- *           4-Tab Admin Dashboard, Real-Time Hardware & Cloud Sync.
- */
-
 'use strict';
 
 const http = require('node:http');
@@ -14,6 +7,8 @@ const { WebSocketServer, WebSocket } = require('ws');
 
 const { db } = require('./database');
 const { HardwareManager } = require('./hardware');
+const { WordPressSyncManager } = require('./wordpress-sync');
+const { PosBridgeManager } = require('./posBridge');
 
 const PORT = parseInt(process.env.PORT, 10) || 8080;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -28,17 +23,24 @@ const MIME_TYPES = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.webm': 'video/webm',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2'
 };
 
-// Initialize Database & Hardware
+// Initialize Database & Hardware (Hardware untouched)
 db.init();
 const hardware = new HardwareManager({
   port: process.env.SERIAL_PORT || '/dev/ttyUSB0',
-  baudRate: parseInt(process.env.BAUD_RATE, 10) || 115200
+  baudRate: parseInt(process.env.BAUD_RATE, 10) || 9600,
+  enableMock: process.env.ENABLE_MOCK === 'true' // Real hardware by default
 });
+
+// Initialize PosBridge & WordPress Sync
+const wordpressSync = new WordPressSyncManager();
+const posBridge = new PosBridgeManager();
 
 // System version metadata
 const SYSTEM_VERSIONS = {
@@ -130,6 +132,8 @@ const server = http.createServer((req, res) => {
       memory: process.memoryUsage(),
       system: SYSTEM_VERSIONS,
       cloud: cloudState,
+      posBridge: posBridge.getStatus(),
+      wordpress: wordpressSync.getStatus(),
       hardware: {
         connected: hardware.isConnected,
         isMock: hardware.isMock,
@@ -140,6 +144,73 @@ const server = http.createServer((req, res) => {
     };
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(status));
+    return;
+  }
+
+  // Helper for JSON body parsing
+  const parseJsonBody = () => new Promise((resolve) => {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        resolve(JSON.parse(body || '{}'));
+      } catch {
+        resolve({});
+      }
+    });
+  });
+
+  // PosBridge REST API Endpoints
+  if (pathname === '/api/posbridge/status') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, posBridge: posBridge.getStatus() }));
+    return;
+  }
+
+  if (pathname === '/api/posbridge/start-transaction' && req.method === 'POST') {
+    parseJsonBody().then(async (body) => {
+      const result = await posBridge.displayPrice(body.amount, {
+        trxCode: body.trxCode,
+        productId: body.productId,
+        slotId: body.slotId,
+        description: body.description
+      });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, result }));
+    });
+    return;
+  }
+
+  if (pathname === '/api/posbridge/callback' && req.method === 'POST') {
+    parseJsonBody().then((body) => {
+      const result = posBridge.handleBankResponse(body);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, result }));
+    });
+    return;
+  }
+
+  if (pathname === '/api/posbridge/simulate-swipe' && req.method === 'POST') {
+    parseJsonBody().then((body) => {
+      const result = posBridge.simulateCardSwipe(body);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, result }));
+    });
+    return;
+  }
+
+  // WordPress Inventory Sync REST API Endpoints
+  if (pathname === '/api/wordpress/status') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, wordpress: wordpressSync.getStatus() }));
+    return;
+  }
+
+  if (pathname === '/api/wordpress/sync' && req.method === 'POST') {
+    wordpressSync.syncProducts().then((result) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, result }));
+    });
     return;
   }
 
@@ -194,6 +265,232 @@ function broadcast(message) {
     }
   }
 }
+
+// Initialize PosBridge & WordPress 5-Minute Inventory Sync
+wordpressSync.init({ db, broadcast });
+posBridge.init({ db, broadcast });
+
+/**
+ * Shared Safe Hardware Dispense Flow (Two-Phase Verification + WordPress Inventory Update)
+ */
+async function executeDispenseFlow({ trxCode, medicineId, slotId, simulateFailure, ws = null }) {
+  const prod = db.getProductById(medicineId) || db.getProductBySlot(slotId);
+
+  if (!prod || prod.stock <= 0) {
+    if (trxCode) {
+      db.updateTransactionStatus(trxCode, 'FAILED', { errorCode: 'E005', module: 'DSP' });
+    }
+    const failMsg = {
+      type: 'DISPENSE_FAILED',
+      data: {
+        trxCode,
+        medicineId,
+        slotId,
+        reason: 'OUT_OF_STOCK',
+        errorCode: 'E005',
+        message_fa: 'متاسفانه موجودی این دارو به اتمام رسیده است.'
+      }
+    };
+    if (ws) ws.send(JSON.stringify(failMsg));
+    broadcast(failMsg);
+    return;
+  }
+
+  // Phase 1: Motor Rotation
+  broadcast({
+    type: 'DISPENSE_STAGE',
+    data: {
+      trxCode,
+      stage: 1,
+      phase: 'MOTOR_ROTATION',
+      message_fa: 'در حال آماده‌سازی و چرخش موتور اسپیرال...'
+    }
+  });
+
+  // Forced simulated failure if requested (for testing auto-refund E001/E002/E003)
+  if (simulateFailure) {
+    setTimeout(() => {
+      const errCode = simulateFailure === 'TIMEOUT' ? 'E003' : 'E002';
+      db.triggerSystemError(errCode);
+      if (trxCode) {
+        db.updateTransactionStatus(trxCode, 'REFUND_PENDING', {
+          errorCode: errCode,
+          module: 'DSP'
+        });
+      }
+      broadcast({
+        type: 'DISPENSE_FAILED',
+        data: {
+          trxCode,
+          medicineId,
+          slotId,
+          reason: errCode === 'E003' ? 'MOTOR_TIMEOUT' : 'DROP_SENSOR_FAILED',
+          errorCode: errCode,
+          refundPending: true,
+          message_fa: 'متاسفانه کالا تحویل نشد؛ مبلغ پرداختی شما به صورت خودکار مسترد می‌گردد (Refund Pending)',
+          supportPhone: '۰۲۱-۸۸۸۸۴۴۴۴'
+        }
+      });
+      broadcast({
+        type: 'SYSTEM_ERRORS_UPDATED',
+        data: { errors: db.getSystemErrors() }
+      });
+      broadcast({
+        type: 'TRANSACTIONS_UPDATED',
+        data: { transactions: db.getTransactions() }
+      });
+    }, 2500);
+    return;
+  }
+
+  try {
+    // Delay briefly to allow UI to show Phase 1
+    await new Promise(r => setTimeout(r, 1200));
+
+    // Phase 2: Drop Sensor Verification
+    broadcast({
+      type: 'DISPENSE_STAGE',
+      data: {
+        trxCode,
+        stage: 2,
+        phase: 'DROP_SENSOR_CHECK',
+        message_fa: 'بررسی سنسور سقوط کالا (Drop Sensor)...'
+      }
+    });
+
+    // Run hardware motor command via ATmega protocol (HARDWARE UNTOUCHED)
+    const result = await hardware.dispense(slotId, 1);
+
+    // Decrement stock in database atomically & log SHA-256 audit
+    const remainingStock = db.decrementStock(slotId, 1);
+
+    // Send POST request to WordPress to update inventory for purchased medicine
+    wordpressSync.updateWordPressStock(prod.id, 1).catch(err => {
+      console.warn('[WordPressSync] Stock push notice:', err.message);
+    });
+
+    // Update transaction to DISPENSED
+    if (trxCode) {
+      db.updateTransactionStatus(trxCode, 'DISPENSED', { module: 'DSP' });
+    }
+
+    broadcast({
+      type: 'DISPENSE_COMPLETE',
+      data: {
+        trxCode,
+        medicineId: prod.id,
+        slotId,
+        remainingStock,
+        seq: result.seq,
+        durationMs: result.durationMs,
+        product_name_fa: prod.name_fa
+      }
+    });
+
+    broadcast({
+      type: 'STOCK_UPDATED',
+      data: {
+        slotId,
+        productId: prod.id,
+        newStock: remainingStock,
+        products: db.getProducts('all')
+      }
+    });
+
+    broadcast({
+      type: 'AUDIT_LOG_ADDED',
+      data: { logs: db.getInventoryAuditLogs(20) }
+    });
+
+    broadcast({
+      type: 'TRANSACTIONS_UPDATED',
+      data: { transactions: db.getTransactions() }
+    });
+
+  } catch (err) {
+    // Hardware error -> Transition to REFUND_PENDING
+    const errCode = err.message.includes('TIMEOUT') ? 'E003' : 'E001';
+    db.triggerSystemError(errCode);
+
+    if (trxCode) {
+      db.updateTransactionStatus(trxCode, 'REFUND_PENDING', {
+        errorCode: errCode,
+        module: 'DSP'
+      });
+    }
+
+    broadcast({
+      type: 'DISPENSE_FAILED',
+      data: {
+        trxCode,
+        medicineId: prod.id,
+        slotId,
+        reason: err.message,
+        errorCode: errCode,
+        refundPending: true,
+        message_fa: 'متاسفانه کالا تحویل نشد؛ مبلغ پرداختی شما به صورت خودکار مسترد می‌گردد (Refund Pending)',
+        supportPhone: '۰۲۱-۸۸۸۸۴۴۴۴'
+      }
+    });
+
+    broadcast({
+      type: 'SYSTEM_ERRORS_UPDATED',
+      data: { errors: db.getSystemErrors() }
+    });
+
+    broadcast({
+      type: 'TRANSACTIONS_UPDATED',
+      data: { transactions: db.getTransactions() }
+    });
+  }
+}
+
+// Automatically trigger dispense when PosBridge reports bank payment SUCCESS
+posBridge.on('payment_success', async (trxData) => {
+  const { trxCode, productId, slotId } = trxData;
+  console.log(`[PosBridge] Bank transaction APPROVED for ${trxCode}. Starting dispense flow...`);
+
+  db.updateTransactionStatus(trxCode, 'WAITING_PAYMENT', {
+    paymentMethod: 'کارتخوان (PosBridge)',
+    module: 'PAY'
+  });
+
+  broadcast({
+    type: 'TRX_UPDATED',
+    data: db.getTransaction(trxCode)
+  });
+  broadcast({
+    type: 'TRANSACTIONS_UPDATED',
+    data: { transactions: db.getTransactions() }
+  });
+
+  await executeDispenseFlow({
+    trxCode,
+    medicineId: productId,
+    slotId
+  });
+});
+
+// Update transaction when PosBridge reports bank payment FAILED
+posBridge.on('payment_failed', (trxData) => {
+  const { trxCode, errorCode, message_fa } = trxData;
+  console.warn(`[PosBridge] Bank transaction REJECTED for ${trxCode}: ${errorCode} (${message_fa})`);
+
+  db.updateTransactionStatus(trxCode, 'FAILED', {
+    paymentMethod: 'کارتخوان (PosBridge)',
+    errorCode: errorCode || 'E005',
+    module: 'PAY'
+  });
+
+  broadcast({
+    type: 'TRX_UPDATED',
+    data: db.getTransaction(trxCode)
+  });
+  broadcast({
+    type: 'TRANSACTIONS_UPDATED',
+    data: { transactions: db.getTransactions() }
+  });
+});
 
 // Hardware Event Listeners -> Bridge to WebSocket clients
 hardware.on('connection', (conn) => {
@@ -258,8 +555,33 @@ setInterval(() => {
   });
 }, 60000);
 
+function clearMockPaymentTimers(ws) {
+  if (ws._payTimer) {
+    clearTimeout(ws._payTimer);
+    ws._payTimer = null;
+  }
+  if (ws._dropTimer) {
+    clearTimeout(ws._dropTimer);
+    ws._dropTimer = null;
+  }
+  if (ws._receiptTimer) {
+    clearTimeout(ws._receiptTimer);
+    ws._receiptTimer = null;
+  }
+}
+
+function sendWsJson(ws, payload) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(payload));
+  }
+}
+
 // WebSocket Client Connection Handler
 wss.on('connection', (ws) => {
+  ws.on('close', () => {
+    clearMockPaymentTimers(ws);
+  });
+
   // Send Initial Snapshot
   ws.send(JSON.stringify({
     type: 'INIT_STATE',
@@ -272,6 +594,8 @@ wss.on('connection', (ws) => {
       auditLogs: db.getInventoryAuditLogs(20),
       system: SYSTEM_VERSIONS,
       cloud: cloudState,
+      posBridge: posBridge.getStatus(),
+      wordpress: wordpressSync.getStatus(),
       hardware: {
         connected: hardware.isConnected,
         isMock: hardware.isMock,
@@ -300,7 +624,7 @@ wss.on('connection', (ws) => {
         const slotId = msg.slotId || (msg.data && msg.data.slotId) || 'A1';
         const prod = db.getProductBySlot ? db.getProductBySlot(slotId) : null;
         const inStock = prod ? prod.stock > 0 : true;
-        ws.send(JSON.stringify({
+        sendWsJson(ws, {
           type: 'SLOT_STATUS',
           status: 'ok',
           data: {
@@ -308,42 +632,40 @@ wss.on('connection', (ws) => {
             slotId,
             stock: prod ? prod.stock : 10
           }
-        }));
+        });
         break;
       }
 
       case 'PAY_REQUEST': {
         const amount = msg.amount || (msg.data && msg.data.amount) || 0;
         console.log(`[WS Mock] PAY_REQUEST received for amount: ${amount}`);
-        if (ws._payTimer) clearTimeout(ws._payTimer);
-        if (ws._dropTimer) clearTimeout(ws._dropTimer);
-        if (ws._receiptTimer) clearTimeout(ws._receiptTimer);
+        clearMockPaymentTimers(ws);
 
         // 1. Simulate POS approval after short realistic delay (2.5s)
         ws._payTimer = setTimeout(() => {
           ws._payTimer = null;
-          ws.send(JSON.stringify({
+          sendWsJson(ws, {
             type: 'POS_ACK',
             status: 'success',
             data: { status: 'success', amount }
-          }));
+          });
 
           // 2. Simulate mechanical DROP_SUCCESS 1.5s after POS approval
           ws._dropTimer = setTimeout(() => {
             ws._dropTimer = null;
-            ws.send(JSON.stringify({
+            sendWsJson(ws, {
               type: 'DROP_SUCCESS',
               data: { slotId: 'A1' }
-            }));
+            });
           }, 1500);
 
           // 3. Simulate RECEIPT_PRINTED 3.5s after POS approval
           ws._receiptTimer = setTimeout(() => {
             ws._receiptTimer = null;
-            ws.send(JSON.stringify({
+            sendWsJson(ws, {
               type: 'RECEIPT_PRINTED',
               data: {}
-            }));
+            });
           }, 3500);
         }, 2500);
         break;
@@ -352,23 +674,12 @@ wss.on('connection', (ws) => {
       case 'PAY_CANCEL': {
         const reason = msg.reason || (msg.data && msg.data.reason) || 'user';
         console.log(`[WS Mock] PAY_CANCEL received. Reason: ${reason}`);
-        if (ws._payTimer) {
-          clearTimeout(ws._payTimer);
-          ws._payTimer = null;
-        }
-        if (ws._dropTimer) {
-          clearTimeout(ws._dropTimer);
-          ws._dropTimer = null;
-        }
-        if (ws._receiptTimer) {
-          clearTimeout(ws._receiptTimer);
-          ws._receiptTimer = null;
-        }
-        ws.send(JSON.stringify({
+        clearMockPaymentTimers(ws);
+        sendWsJson(ws, {
           type: 'POS_ACK',
           status: 'cancelled',
           data: { status: 'cancelled', reason }
-        }));
+        });
         break;
       }
 
@@ -414,168 +725,74 @@ wss.on('connection', (ws) => {
       // Screen 5: Hardware Dispense Request with Two-Phase Execution
       case 'DISPENSE_REQUEST': {
         const { trxCode, medicineId, slotId, simulateFailure } = msg;
-        const prod = db.getProductById(medicineId) || db.getProductBySlot(slotId);
+        await executeDispenseFlow({ trxCode, medicineId, slotId, simulateFailure, ws });
+        break;
+      }
 
-        if (!prod || prod.stock <= 0) {
-          if (trxCode) {
-            db.updateTransactionStatus(trxCode, 'FAILED', { errorCode: 'E005', module: 'DSP' });
-          }
-          ws.send(JSON.stringify({
-            type: 'DISPENSE_FAILED',
-            data: {
-              trxCode,
-              medicineId,
-              slotId,
-              reason: 'OUT_OF_STOCK',
-              errorCode: 'E005',
-              message_fa: 'متاسفانه موجودی این دارو به اتمام رسیده است.'
-            }
-          }));
-          return;
+      // ---------------------------------------------------------
+      // POSBRIDGE INTEGRATION
+      // ---------------------------------------------------------
+
+      // Display price on POS Terminal via PosBridge when customer selects product
+      case 'POS_START_TRANSACTION':
+      case 'START_POS_PAYMENT': {
+        const { productId, slotId, amount, trxCode } = msg;
+        let trx = trxCode ? db.getTransaction(trxCode) : null;
+        if (!trx) {
+          trx = db.createTransaction(productId, slotId, amount, 'کارتخوان (PosBridge)');
         }
+        const prod = db.getProductById(productId) || db.getProductBySlot(slotId);
+        const description = prod ? `خرید ${prod.name_fa}` : 'خرید از کیوسک داروخانه';
 
-        // Phase 1: Motor Rotation
-        broadcast({
-          type: 'DISPENSE_STAGE',
-          data: {
-            trxCode,
-            stage: 1,
-            phase: 'MOTOR_ROTATION',
-            message_fa: 'در حال آماده‌سازی و چرخش موتور اسپیرال...'
-          }
+        await posBridge.displayPrice(amount, {
+          trxCode: trx.trx_code,
+          productId,
+          slotId,
+          description
         });
+        break;
+      }
 
-        // Forced simulated failure if requested (for testing auto-refund E001/E002/E003)
-        if (simulateFailure) {
-          setTimeout(() => {
-            const errCode = simulateFailure === 'TIMEOUT' ? 'E003' : 'E002';
-            db.triggerSystemError(errCode);
-            if (trxCode) {
-              db.updateTransactionStatus(trxCode, 'REFUND_PENDING', {
-                errorCode: errCode,
-                module: 'DSP'
-              });
-            }
-            broadcast({
-              type: 'DISPENSE_FAILED',
-              data: {
-                trxCode,
-                medicineId,
-                slotId,
-                reason: errCode === 'E003' ? 'MOTOR_TIMEOUT' : 'DROP_SENSOR_FAILED',
-                errorCode: errCode,
-                refundPending: true,
-                message_fa: 'متاسفانه کالا تحویل نشد؛ مبلغ پرداختی شما به صورت خودکار مسترد می‌گردد (Refund Pending)',
-                supportPhone: '۰۲۱-۸۸۸۸۴۴۴۴'
-              }
-            });
-            broadcast({
-              type: 'SYSTEM_ERRORS_UPDATED',
-              data: { errors: db.getSystemErrors() }
-            });
-            broadcast({
-              type: 'TRANSACTIONS_UPDATED',
-              data: { transactions: db.getTransactions() }
-            });
-          }, 2500);
-          return;
-        }
+      // Simulate customer card swipe & bank authorization
+      case 'POS_SIMULATE_SWIPE': {
+        const { success, errorCode, message_fa } = msg;
+        posBridge.simulateCardSwipe({
+          success: success !== false,
+          errorCode,
+          message_fa
+        });
+        break;
+      }
 
-        try {
-          // Delay briefly to allow UI to show Phase 1
-          await new Promise(r => setTimeout(r, 1200));
-
-          // Phase 2: Drop Sensor Verification
-          broadcast({
-            type: 'DISPENSE_STAGE',
-            data: {
-              trxCode,
-              stage: 2,
-              phase: 'DROP_SENSOR_CHECK',
-              message_fa: 'بررسی سنسور سقوط کالا (Drop Sensor)...'
-            }
-          });
-
-          // Run hardware motor command via ATmega protocol
-          const result = await hardware.dispense(slotId, 1);
-
-          // Decrement stock in database atomically & log SHA-256 audit
-          const remainingStock = db.decrementStock(slotId, 1);
-
-          // Update transaction to DISPENSED
-          if (trxCode) {
-            db.updateTransactionStatus(trxCode, 'DISPENSED', { module: 'DSP' });
-          }
-
-          broadcast({
-            type: 'DISPENSE_COMPLETE',
-            data: {
-              trxCode,
-              medicineId: prod.id,
-              slotId,
-              remainingStock,
-              seq: result.seq,
-              durationMs: result.durationMs,
-              product_name_fa: prod.name_fa
-            }
-          });
-
-          broadcast({
-            type: 'STOCK_UPDATED',
-            data: {
-              slotId,
-              productId: prod.id,
-              newStock: remainingStock,
-              products: db.getProducts('all')
-            }
-          });
-
-          broadcast({
-            type: 'AUDIT_LOG_ADDED',
-            data: { logs: db.getInventoryAuditLogs(20) }
-          });
-
-          broadcast({
-            type: 'TRANSACTIONS_UPDATED',
-            data: { transactions: db.getTransactions() }
-          });
-
-        } catch (err) {
-          // Hardware error -> Transition to REFUND_PENDING
-          const errCode = err.message.includes('TIMEOUT') ? 'E003' : 'E001';
-          db.triggerSystemError(errCode);
-
-          if (trxCode) {
-            db.updateTransactionStatus(trxCode, 'REFUND_PENDING', {
-              errorCode: errCode,
-              module: 'DSP'
-            });
-          }
-
-          broadcast({
-            type: 'DISPENSE_FAILED',
-            data: {
-              trxCode,
-              medicineId: prod.id,
-              slotId,
-              reason: err.message,
-              errorCode: errCode,
-              refundPending: true,
-              message_fa: 'متاسفانه کالا تحویل نشد؛ مبلغ پرداختی شما به صورت خودکار مسترد می‌گردد (Refund Pending)',
-              supportPhone: '۰۲۱-۸۸۸۸۴۴۴۴'
-            }
-          });
-
-          broadcast({
-            type: 'SYSTEM_ERRORS_UPDATED',
-            data: { errors: db.getSystemErrors() }
-          });
-
-          broadcast({
-            type: 'TRANSACTIONS_UPDATED',
-            data: { transactions: db.getTransactions() }
+      // Cancel active POS transaction
+      case 'POS_CANCEL': {
+        const { trxCode } = msg;
+        posBridge.cancelTransaction('USER_CANCEL');
+        if (trxCode) {
+          db.updateTransactionStatus(trxCode, 'FAILED', {
+            paymentMethod: 'کارتخوان (PosBridge)',
+            errorCode: 'USER_CANCEL',
+            module: 'PAY'
           });
         }
+        broadcast({
+          type: 'TRANSACTIONS_UPDATED',
+          data: { transactions: db.getTransactions() }
+        });
+        break;
+      }
+
+      // ---------------------------------------------------------
+      // WORDPRESS INVENTORY INTEGRATION
+      // ---------------------------------------------------------
+
+      // Manual sync trigger from frontend / admin
+      case 'WP_SYNC_NOW': {
+        const res = await wordpressSync.syncProducts();
+        ws.send(JSON.stringify({
+          type: 'WP_SYNC_RESULT',
+          data: res
+        }));
         break;
       }
 
@@ -795,7 +1012,7 @@ async function start(port = PORT, host = HOST) {
       console.log(`🚀 PHARMACY VENDING KIOSK BACKEND RUNNING`);
       console.log(`📡 URL: http://${host}:${port}`);
       console.log(`⚡ WebSocket: ws://${host}:${port}`);
-      console.log(`🔌 Hardware Mode: ${hardware.isMock ? 'VIRTUAL ATMEGA SIMULATOR (Mock)' : `SERIAL (${hardware.portPath})`}`);
+      console.log(`🔌 Hardware Mode: ${hardware.isMock ? 'VIRTUAL ATMEGA SIMULATOR (Mock)' : (hardware.isConnected ? `CONNECTED (${hardware.portPath} @ ${hardware.baudRate} baud)` : `SEARCHING REAL HARDWARE (${hardware.portPath} @ ${hardware.baudRate} baud)`)}`);
       console.log(`🖥️  Display Target: 21.5-inch Vertical (1080 x 1920 portrait)`);
       console.log(`🏎️  Target Engine: 60 FPS Zero-Overhead`);
       console.log(`====================================================`);
@@ -811,4 +1028,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { server, hardware, db, start };
+module.exports = { server, hardware, db, posBridge, wordpressSync, start };

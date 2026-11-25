@@ -24,9 +24,8 @@ class PharmacyDatabase {
     this.memoryStore = null;
   }
 
-  init() {
-    // If DB exists, reset to ensure full schema alignment with customer flow & admin specs
-    if (fs.existsSync(DB_FILE_PATH)) {
+  init(forceReset = false) {
+    if (forceReset && fs.existsSync(DB_FILE_PATH)) {
       try {
         fs.unlinkSync(DB_FILE_PATH);
       } catch {}
@@ -36,7 +35,10 @@ class PharmacyDatabase {
       try {
         this.db = new DatabaseSync(DB_FILE_PATH);
         this._setupSchema();
-        this._seedData();
+        const hasProducts = this.db.prepare('SELECT count(*) as count FROM products').get();
+        if (!hasProducts || hasProducts.count === 0) {
+          this._seedData();
+        }
         return;
       } catch (err) {
         console.warn('[Database] Disk DB error, falling back to in-memory:', err.message);
@@ -81,7 +83,9 @@ class PharmacyDatabase {
         image_key TEXT NOT NULL,
         cross_sell_id INTEGER,
         cross_sell_title_fa TEXT,
-        cross_sell_reason_fa TEXT
+        cross_sell_reason_fa TEXT,
+        wp_id INTEGER DEFAULT NULL,
+        last_synced_at TEXT DEFAULT NULL
       );
 
       CREATE TABLE IF NOT EXISTS transactions (
@@ -119,7 +123,24 @@ class PharmacyDatabase {
         last_triggered_at TEXT,
         resolved_at TEXT
       );
+
+      CREATE TABLE IF NOT EXISTS wp_sync_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sync_type TEXT NOT NULL, -- SCHEDULED_5MIN, MANUAL, STOCK_PUSH
+        status TEXT NOT NULL, -- SUCCESS, FAILED
+        products_count INTEGER DEFAULT 0,
+        details TEXT,
+        created_at TEXT NOT NULL
+      );
     `);
+
+    // Ensure columns exist on older tables
+    try {
+      this.db.exec('ALTER TABLE products ADD COLUMN wp_id INTEGER DEFAULT NULL;');
+    } catch {}
+    try {
+      this.db.exec('ALTER TABLE products ADD COLUMN last_synced_at TEXT DEFAULT NULL;');
+    } catch {}
   }
 
   _seedData() {
@@ -808,6 +829,146 @@ class PharmacyDatabase {
       else err.resolved_at = now;
     }
     return this.memoryStore.systemErrors;
+  }
+
+  // --- WordPress Inventory Synchronization API ---
+
+  getProductByWpId(wpId) {
+    if (!wpId) return null;
+    if (this.db) {
+      return this.db.prepare('SELECT * FROM products WHERE wp_id = ?').get(wpId);
+    }
+    return this.memoryStore.products.find(p => p.wp_id === wpId);
+  }
+
+  upsertWordPressProduct(wpProd) {
+    const now = new Date().toISOString();
+    if (this.db) {
+      // 1. Check if product already exists by wp_id, slot_id, or product_code
+      let existing = null;
+      if (wpProd.wp_id) {
+        existing = this.db.prepare('SELECT * FROM products WHERE wp_id = ?').get(wpProd.wp_id);
+      }
+      if (!existing && wpProd.slot_id) {
+        existing = this.db.prepare('SELECT * FROM products WHERE slot_id = ?').get(wpProd.slot_id);
+      }
+      if (!existing && wpProd.product_code) {
+        existing = this.db.prepare('SELECT * FROM products WHERE product_code = ?').get(wpProd.product_code);
+      }
+
+      if (existing) {
+        this.db.prepare(`
+          UPDATE products SET
+            wp_id = COALESCE(?, wp_id),
+            name_fa = COALESCE(?, name_fa),
+            name_en = COALESCE(?, name_en),
+            price = COALESCE(?, price),
+            stock = COALESCE(?, stock),
+            is_active = COALESCE(?, is_active),
+            last_synced_at = ?
+          WHERE id = ?
+        `).run(
+          wpProd.wp_id || null,
+          wpProd.name_fa || null,
+          wpProd.name_en || null,
+          wpProd.price !== undefined ? wpProd.price : null,
+          wpProd.stock !== undefined ? wpProd.stock : null,
+          wpProd.is_active !== undefined ? wpProd.is_active : null,
+          now,
+          existing.id
+        );
+        return this.getProductById(existing.id);
+      } else {
+        const nextId = (this.db.prepare('SELECT MAX(id) as max_id FROM products').get()?.max_id || 0) + 1;
+        const slotId = wpProd.slot_id || nextId;
+        const slotCode = wpProd.slot_code || `S${slotId}`;
+        const prodCode = wpProd.product_code || `WP-${wpProd.wp_id || nextId}`;
+
+        this.db.prepare(`
+          INSERT INTO products (
+            id, product_code, name_fa, name_en, category, sub_category_fa, slot_code,
+            indication_fa, ingredients_fa, price, slot_id, stock, max_capacity,
+            is_active, is_sensitive, image_key, wp_id, last_synced_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          nextId, prodCode, wpProd.name_fa || 'داروی جدید', wpProd.name_en || 'New Medicine',
+          wpProd.category || 'head', wpProd.sub_category_fa || 'داروخانه', slotCode,
+          wpProd.indication_fa || '', wpProd.ingredients_fa || '', wpProd.price || 50000,
+          slotId, wpProd.stock || 0, wpProd.max_capacity || 30,
+          wpProd.is_active !== undefined ? wpProd.is_active : 1, 0,
+          wpProd.image_key || 'px-1042', wpProd.wp_id || null, now
+        );
+        return this.getProductById(nextId);
+      }
+    } else {
+      let existing = this.memoryStore.products.find(p =>
+        (wpProd.wp_id && p.wp_id === wpProd.wp_id) ||
+        (wpProd.slot_id && p.slot_id === wpProd.slot_id) ||
+        (wpProd.product_code && p.product_code === wpProd.product_code)
+      );
+
+      if (existing) {
+        if (wpProd.wp_id) existing.wp_id = wpProd.wp_id;
+        if (wpProd.name_fa) existing.name_fa = wpProd.name_fa;
+        if (wpProd.name_en) existing.name_en = wpProd.name_en;
+        if (wpProd.price !== undefined) existing.price = wpProd.price;
+        if (wpProd.stock !== undefined) existing.stock = wpProd.stock;
+        if (wpProd.is_active !== undefined) existing.is_active = wpProd.is_active;
+        existing.last_synced_at = now;
+        return existing;
+      } else {
+        const nextId = this.memoryStore.products.length + 1;
+        const newProd = {
+          id: nextId,
+          product_code: wpProd.product_code || `WP-${wpProd.wp_id || nextId}`,
+          name_fa: wpProd.name_fa || 'داروی جدید',
+          name_en: wpProd.name_en || 'New Medicine',
+          category: wpProd.category || 'head',
+          sub_category_fa: wpProd.sub_category_fa || 'داروخانه',
+          slot_code: wpProd.slot_code || `S${nextId}`,
+          indication_fa: wpProd.indication_fa || '',
+          ingredients_fa: wpProd.ingredients_fa || '',
+          price: wpProd.price || 50000,
+          slot_id: wpProd.slot_id || nextId,
+          stock: wpProd.stock || 0,
+          max_capacity: wpProd.max_capacity || 30,
+          is_active: wpProd.is_active !== undefined ? wpProd.is_active : 1,
+          is_sensitive: 0,
+          image_key: wpProd.image_key || 'px-1042',
+          wp_id: wpProd.wp_id || null,
+          last_synced_at: now
+        };
+        this.memoryStore.products.push(newProd);
+        return newProd;
+      }
+    }
+  }
+
+  batchUpsertWordPressProducts(wpProducts) {
+    if (!Array.isArray(wpProducts)) return [];
+    const results = [];
+    for (const p of wpProducts) {
+      results.push(this.upsertWordPressProduct(p));
+    }
+    return results;
+  }
+
+  logWordPressSync(syncType, status, productsCount, details = '') {
+    const now = new Date().toISOString();
+    if (this.db) {
+      this.db.prepare(`
+        INSERT INTO wp_sync_logs (sync_type, status, products_count, details, created_at)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(syncType, status, productsCount, String(details), now);
+    }
+    return { syncType, status, productsCount, details, createdAt: now };
+  }
+
+  getWordPressSyncLogs(limit = 20) {
+    if (this.db) {
+      return this.db.prepare('SELECT * FROM wp_sync_logs ORDER BY id DESC LIMIT ?').all(limit);
+    }
+    return [];
   }
 }
 

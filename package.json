@@ -5,7 +5,12 @@
   "main": "backend/server.js",
   "scripts": {
     "start": "node backend/server.js",
-    "test": "node -e \"console.log('Running test suite...');\" && node -e \"const { computeCRC16 } = require('./backend/crc16.js'); const t = computeCRC16(Buffer.from('AA01040064020701', 'hex')); if (t !== 0xEC9E) process.exit(1); console.log('CRC16 Test Passed: 0xEC9E');\""
+    "test": "node -e \"const { buildFrame, parseFrame, PROTOCOL } = require('./backend/protocol.js'); const f = buildFrame(PROTOCOL.TYPE.COMMAND, PROTOCOL.CMD.SET_OUTPUT, 1, [1, 1]); if (f.toString('hex').toUpperCase() !== 'AA010401020101F972') { console.error('Mismatch:', f.toString('hex')); process.exit(1); } const p = parseFrame(f); if (!p || p.cmd !== PROTOCOL.CMD.SET_OUTPUT) process.exit(1); console.log('Protocol Test Passed: AA010401020101F972');\"",
+    "test:posbridge": "ENABLE_MOCK=true WP_MOCK=true POS_BRIDGE_MOCK=true node test_posbridge_and_wp.js",
+    "test:e2e": "ENABLE_MOCK=true WP_MOCK=true POS_BRIDGE_MOCK=true node test_e2e.js",
+    "test:hardware": "node backend/test-hardware.js",
+    "light-show": "node backend/light-show.js",
+    "melody": "node backend/melody-slot17.js"
   },
   "keywords": [
     "vending-machine",

@@ -1,7 +1,7 @@
 /**
  * ATmega Microcontroller Hardware Simulator (Mock Mode)
  * Emulates the embedded firmware behavior of the vending machine controller board.
- * Allows full hardware testing and demo execution without physical serial cables.
+ * Aligned with official C firmware specification (24 outputs, 9600 baud, 1-byte SEQ).
  */
 
 'use strict';
@@ -15,8 +15,8 @@ class MockAtmega extends EventEmitter {
     this.parser = new StreamParser();
     this.parser.on('frame', (frame) => this._handleIncomingFrame(frame));
 
-    // Internal simulated hardware state
-    this.outputs = new Uint8Array(8); // 8 Relay outputs (0 = OFF, 1 = ON)
+    // Internal simulated hardware state (24 outputs via shift registers)
+    this.outputs = new Uint8Array(PROTOCOL.OUTPUT_COUNT);
     this.sensors = {
       dropSensorActive: false,
       doorClosed: true,
@@ -54,56 +54,31 @@ class MockAtmega extends EventEmitter {
    * @param {object} frame 
    */
   _handleIncomingFrame(frame) {
-    // Stage 5 acknowledgment from Host PC
-    if (frame.type === PROTOCOL.TYPE.DATA_RECEIVED) {
-      if (this.waitingForAckSeq === frame.seq) {
-        this.emit('log', {
-          role: 'MCU',
-          text: `[MCU] Handshake complete: Host confirmed DATA_RECEIVED for SEQ=${frame.seq}`
-        });
-        this.waitingForAckSeq = null;
-      }
-      return;
-    }
-
     // Only process COMMAND frames from Host PC
     if (frame.type !== PROTOCOL.TYPE.COMMAND) {
       return;
     }
 
     const { cmd, seq, data } = frame;
-
-    // Stage 2: Immediately send COMMAND_RECEIVED (0x02) ACK within 20ms
-    setTimeout(() => {
-      const ackFrame = buildFrame(PROTOCOL.TYPE.COMMAND_RECEIVED, cmd, seq);
-      this._sendToHost(ackFrame);
-      this.emit('log', {
-        role: 'MCU',
-        text: `[MCU] Sent COMMAND_RECEIVED (0x02) for CMD=0x${cmd.toString(16).padStart(2, '0')} SEQ=${seq}`
-      });
-
-      // Stage 3 & 4: Execute command and send COMMAND_DONE (0x03) or COMMAND_ERROR (0x04)
-      this._executeCommand(cmd, seq, data);
-    }, this.ackLatencyMs);
+    this._executeCommand(cmd, seq, data);
   }
 
   /**
-   * Execute simulated hardware action
+   * Execute simulated hardware action matching firmware uart_execute_command
    */
   _executeCommand(cmd, seq, data) {
     switch (cmd) {
       case PROTOCOL.CMD.PING: {
         setTimeout(() => {
-          this._finishCommand(PROTOCOL.TYPE.COMMAND_DONE, cmd, seq, Buffer.from([0x01]));
+          this._finishCommand(PROTOCOL.TYPE.COMMAND_DONE, cmd, seq, Buffer.from([PROTOCOL.ERROR.NONE]));
         }, 15);
         break;
       }
 
       case PROTOCOL.CMD.GET_STATUS: {
         setTimeout(() => {
-          // Status payload: [statusFlags, tempC, volt*10]
           const statusBuf = Buffer.from([
-            0x00, // 0x00 = All Systems Normal
+            PROTOCOL.ERROR.NONE,
             Math.round(this.sensors.temperatureC),
             Math.round(this.sensors.busVoltageV * 10)
           ]);
@@ -115,6 +90,7 @@ class MockAtmega extends EventEmitter {
       case PROTOCOL.CMD.GET_SENSORS: {
         setTimeout(() => {
           const sBuf = Buffer.from([
+            PROTOCOL.ERROR.NONE,
             this.sensors.dropSensorActive ? 0x01 : 0x00,
             this.sensors.doorClosed ? 0x01 : 0x00,
             this.sensors.trayReady ? 0x01 : 0x00
@@ -126,23 +102,34 @@ class MockAtmega extends EventEmitter {
 
       case PROTOCOL.CMD.SET_OUTPUT: {
         setTimeout(() => {
-          if (!data || data.length < 2) {
-            this._finishCommand(PROTOCOL.TYPE.COMMAND_ERROR, cmd, seq, Buffer.from([0x01])); // Err: Invalid params
+          // Payload length must be exactly 2 bytes
+          if (!data || data.length !== 2) {
+            this._finishCommand(PROTOCOL.TYPE.COMMAND_ERROR, cmd, seq, Buffer.from([PROTOCOL.ERROR.INVALID_DATA]));
             return;
           }
-          const outputId = data[0]; // 1-8
-          const state = data[1] ? 1 : 0;
-          if (outputId >= 1 && outputId <= 8) {
-            this.outputs[outputId - 1] = state;
-            this.emit('log', {
-              role: 'MCU',
-              text: `[MCU] Output #${outputId} set to ${state ? 'ON' : 'OFF'}`
-            });
-            this._finishCommand(PROTOCOL.TYPE.COMMAND_DONE, cmd, seq, Buffer.from([outputId, state]));
-          } else {
-            this._finishCommand(PROTOCOL.TYPE.COMMAND_ERROR, cmd, seq, Buffer.from([0x02])); // Err: Output out of range
+
+          const outputId = data[0]; // 1 to 24
+          if (outputId < 1 || outputId > PROTOCOL.OUTPUT_COUNT) {
+            this._finishCommand(PROTOCOL.TYPE.COMMAND_ERROR, cmd, seq, Buffer.from([PROTOCOL.ERROR.INVALID_OUTPUT]));
+            return;
           }
-        }, 30);
+
+          const state = data[1];
+          if (state > 1) {
+            this._finishCommand(PROTOCOL.TYPE.COMMAND_ERROR, cmd, seq, Buffer.from([PROTOCOL.ERROR.INVALID_DATA]));
+            return;
+          }
+
+          // Update internal simulated output state
+          this.outputs[outputId - 1] = state;
+          this.emit('log', {
+            role: 'MCU',
+            text: `[MCU] Output #${outputId} set to ${state ? 'ON' : 'OFF'}`
+          });
+
+          // Return DONE with error_none
+          this._finishCommand(PROTOCOL.TYPE.COMMAND_DONE, cmd, seq, Buffer.from([PROTOCOL.ERROR.NONE]));
+        }, 20);
         break;
       }
 
@@ -157,6 +144,11 @@ class MockAtmega extends EventEmitter {
         const slotId = data && data.length > 0 ? data[0] : 1;
         const count = data && data.length > 1 ? data[1] : 1;
 
+        if (slotId < 1 || slotId > PROTOCOL.OUTPUT_COUNT) {
+          this._finishCommand(PROTOCOL.TYPE.COMMAND_ERROR, cmd, seq, Buffer.from([PROTOCOL.ERROR.INVALID_OUTPUT]));
+          return;
+        }
+
         this.emit('log', {
           role: 'MCU',
           text: `[MCU] Motor starting for Slot #${slotId} (Count: ${count}). Rotating spiral coil...`
@@ -169,27 +161,25 @@ class MockAtmega extends EventEmitter {
               role: 'MCU',
               text: `[MCU] Motor stall/jam detected on Slot #${slotId}! Dispense failed.`
             });
-            this._finishCommand(PROTOCOL.TYPE.COMMAND_ERROR, cmd, seq, Buffer.from([slotId, 0xEE])); // 0xEE = Jammed
+            this._finishCommand(PROTOCOL.TYPE.COMMAND_ERROR, cmd, seq, Buffer.from([PROTOCOL.ERROR.SENSOR]));
           }, 800);
           return;
         }
 
         // Simulate mechanical rotation duration
         this.activeMotorTimer = setTimeout(() => {
-          // Infrared drop sensor trips as medication falls through chute
           this.sensors.dropSensorActive = true;
           this.emit('log', {
             role: 'MCU',
             text: `[MCU] IR Drop Sensor tripped! Medication fell into delivery tray from Slot #${slotId}.`
           });
 
-          // Reset IR drop sensor after 200ms
           setTimeout(() => {
             this.sensors.dropSensorActive = false;
           }, 200);
 
-          // Send COMMAND_DONE (0x03) with [slotId, 0x00 (SUCCESS)]
-          this._finishCommand(PROTOCOL.TYPE.COMMAND_DONE, cmd, seq, Buffer.from([slotId, 0x00]));
+          // Send COMMAND_DONE (0x03) with error_none
+          this._finishCommand(PROTOCOL.TYPE.COMMAND_DONE, cmd, seq, Buffer.from([PROTOCOL.ERROR.NONE]));
         }, this.dispenseDurationMs);
         break;
       }
@@ -200,7 +190,7 @@ class MockAtmega extends EventEmitter {
           this.activeMotorTimer = null;
         }
         this.emit('log', { role: 'MCU', text: '[MCU] Emergency STOP executed. Motors halted.' });
-        this._finishCommand(PROTOCOL.TYPE.COMMAND_DONE, cmd, seq, Buffer.from([0x00]));
+        this._finishCommand(PROTOCOL.TYPE.COMMAND_DONE, cmd, seq, Buffer.from([PROTOCOL.ERROR.NONE]));
         break;
       }
 
@@ -211,7 +201,7 @@ class MockAtmega extends EventEmitter {
           this.activeMotorTimer = null;
         }
         this.emit('log', { role: 'MCU', text: '[MCU] ALL_OFF executed. All outputs and motors powered down.' });
-        this._finishCommand(PROTOCOL.TYPE.COMMAND_DONE, cmd, seq, Buffer.from([0x00]));
+        this._finishCommand(PROTOCOL.TYPE.COMMAND_DONE, cmd, seq, Buffer.from([PROTOCOL.ERROR.NONE]));
         break;
       }
 
@@ -224,17 +214,16 @@ class MockAtmega extends EventEmitter {
       }
 
       default: {
-        this._finishCommand(PROTOCOL.TYPE.COMMAND_ERROR, cmd, seq, Buffer.from([0xFF])); // Unknown command
+        this._finishCommand(PROTOCOL.TYPE.COMMAND_ERROR, cmd, seq, Buffer.from([PROTOCOL.ERROR.INVALID_COMMAND]));
         break;
       }
     }
   }
 
   /**
-   * Finalize command execution with DONE or ERROR frame and prepare for Host ACK
+   * Finalize command execution with DONE or ERROR frame
    */
   _finishCommand(type, cmd, seq, payload) {
-    this.waitingForAckSeq = seq;
     const frame = buildFrame(type, cmd, seq, payload);
     this._sendToHost(frame);
     this.emit('log', {

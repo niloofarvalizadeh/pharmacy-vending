@@ -1,13 +1,15 @@
 /**
  * Hardware Controller for ATmega Vending Board
- * Implements the full 5-stage serial protocol lifecycle, retries, auto-mock fallback,
+ * Implements serial protocol communication, auto-reconnect, 24-output management,
  * and real-time transaction event emission.
+ * Aligned with official firmware (9600 baud, 1-byte SEQ, 24 outputs).
  */
 
 'use strict';
 
 const EventEmitter = require('node:events');
-const { PROTOCOL, TYPE_NAMES, CMD_NAMES, buildFrame, StreamParser } = require('./protocol');
+const fs = require('node:fs');
+const { PROTOCOL, TYPE_NAMES, CMD_NAMES, ERROR_NAMES, buildFrame, StreamParser } = require('./protocol');
 const { MockAtmega } = require('./mock-atmega');
 
 let SerialPort = null;
@@ -21,15 +23,21 @@ class HardwareManager extends EventEmitter {
   constructor(options = {}) {
     super();
     this.portPath = options.port || process.env.SERIAL_PORT || '/dev/ttyUSB0';
-    this.baudRate = options.baudRate || 115200;
-    this.ackTimeoutMs = options.ackTimeoutMs || 600; // Timeout waiting for COMMAND_RECEIVED
+    this.baudRate = options.baudRate || parseInt(process.env.BAUD_RATE, 10) || PROTOCOL.DEFAULT_BAUD; // 9600 baud
+    this.ackTimeoutMs = options.ackTimeoutMs || 1000; // Timeout waiting for response
     this.maxRetries = options.maxRetries || 3;        // Max 3 retries
-    this.executionTimeoutMs = options.executionTimeoutMs || 8000; // Timeout waiting for DONE
+    this.executionTimeoutMs = options.executionTimeoutMs || 8000; // Timeout waiting for execution
+
+    // Mock setting: By default, mock is disabled to allow direct physical hardware communication
+    this.enableMock = options.enableMock !== undefined 
+      ? Boolean(options.enableMock) 
+      : (process.env.ENABLE_MOCK === 'true');
 
     this.port = null;
     this.mock = null;
     this.isMock = false;
     this.isConnected = false;
+    this._portWatcherTimer = null;
 
     this.parser = new StreamParser();
     this.parser.on('frame', (frame) => this._onFrameReceived(frame));
@@ -37,19 +45,19 @@ class HardwareManager extends EventEmitter {
       this.emit('log', { level: 'error', text: `CRC Error detected!`, detail: err });
     });
 
-    // Sequence Number Generator (1 to 65535)
+    // Sequence Number Generator (1 to 255 - 1 byte)
     this._currentSeq = 0;
 
     // Transaction Queue & Active Transaction
     this.queue = [];
     this.activeTx = null;
 
-    // Last known hardware state cache
+    // Last known hardware state cache (24 outputs)
     this.statusCache = {
       isMock: false,
       portName: this.portPath,
       connected: false,
-      outputs: new Array(8).fill(0),
+      outputs: new Array(PROTOCOL.OUTPUT_COUNT).fill(0),
       lastPingLatencyMs: null,
       temperatureC: 24.0,
       busVoltageV: 12.0
@@ -57,28 +65,32 @@ class HardwareManager extends EventEmitter {
   }
 
   /**
-   * Allocate next sequence number
+   * Allocate next sequence number (1 to 255)
    */
   _nextSeq() {
-    this._currentSeq = (this._currentSeq + 1) & 0xFFFF;
+    this._currentSeq = (this._currentSeq + 1) & 0xFF;
     if (this._currentSeq === 0) this._currentSeq = 1;
     return this._currentSeq;
   }
 
   /**
-   * Initialize Serial Connection with auto-detection and Mock fallback
+   * Initialize Serial Connection with auto-detection
    */
   async init() {
-    this.emit('log', { level: 'info', text: `Initializing Hardware Controller on ${this.portPath}...` });
+    this.emit('log', { 
+      level: 'info', 
+      text: `Initializing Hardware Controller on ${this.portPath} @ ${this.baudRate} baud (Mock: ${this.enableMock ? 'ENABLED' : 'DISABLED'})...` 
+    });
 
     if (SerialPort) {
       try {
-        const opened = await this._tryOpenSerial();
+        const opened = await this._tryOpenSerial(this.portPath);
         if (opened) {
           this.isConnected = true;
           this.isMock = false;
           this.statusCache.connected = true;
           this.statusCache.isMock = false;
+          this.statusCache.portName = this.portPath;
           this.emit('connection', { connected: true, isMock: false, port: this.portPath });
           this.emit('log', { level: 'success', text: `Physical serial port connected: ${this.portPath} @ ${this.baudRate} baud` });
           return;
@@ -88,17 +100,73 @@ class HardwareManager extends EventEmitter {
       }
     }
 
-    // Fallback to High-Fidelity Mock ATmega Simulator
-    this._startMock();
+    if (this.enableMock) {
+      // Explicit Mock Mode requested
+      this._startMock();
+    } else {
+      // Real Hardware Mode: keep scanning for connected hardware without starting mock
+      this.emit('log', { 
+        level: 'warn', 
+        text: `Physical serial device not detected on ${this.portPath}. Real Hardware Mode active; watching for device...` 
+      });
+      this._startPortWatcher();
+    }
+  }
+
+  /**
+   * Periodically check for available serial ports and auto-connect
+   */
+  _startPortWatcher() {
+    if (this._portWatcherTimer) return;
+
+    this._portWatcherTimer = setInterval(async () => {
+      if (this.isConnected) {
+        clearInterval(this._portWatcherTimer);
+        this._portWatcherTimer = null;
+        return;
+      }
+
+      if (!SerialPort) return;
+
+      try {
+        const ports = await SerialPort.list();
+        // Look for common USB-UART chips or configured port
+        const candidate = ports.find(p => 
+          p.path === this.portPath || 
+          p.path.startsWith('/dev/ttyUSB') || 
+          p.path.startsWith('/dev/ttyACM')
+        );
+
+        if (candidate) {
+          this.emit('log', { level: 'info', text: `Discovered candidate serial device: ${candidate.path}. Attempting connection...` });
+          const opened = await this._tryOpenSerial(candidate.path);
+          if (opened) {
+            this.portPath = candidate.path;
+            this.isConnected = true;
+            this.isMock = false;
+            this.statusCache.connected = true;
+            this.statusCache.isMock = false;
+            this.statusCache.portName = candidate.path;
+            this.emit('connection', { connected: true, isMock: false, port: candidate.path });
+            this.emit('log', { level: 'success', text: `Successfully connected to physical device: ${candidate.path} @ ${this.baudRate} baud` });
+            
+            clearInterval(this._portWatcherTimer);
+            this._portWatcherTimer = null;
+          }
+        }
+      } catch (err) {
+        // Silent catch for watcher
+      }
+    }, 2000);
   }
 
   /**
    * Attempt to open physical serial port
    */
-  _tryOpenSerial() {
+  _tryOpenSerial(targetPath) {
     return new Promise((resolve) => {
       const port = new SerialPort({
-        path: this.portPath,
+        path: targetPath,
         baudRate: this.baudRate,
         autoOpen: false
       });
@@ -116,16 +184,18 @@ class HardwareManager extends EventEmitter {
 
         port.on('error', (portErr) => {
           this.emit('log', { level: 'error', text: `SerialPort error: ${portErr.message}` });
-          if (!this.isMock) {
-            this._startMock();
-          }
         });
 
         port.on('close', () => {
-          this.emit('log', { level: 'warn', text: `Serial port ${this.portPath} closed.` });
+          this.emit('log', { level: 'warn', text: `Serial port ${targetPath} closed/disconnected.` });
           this.isConnected = false;
           this.statusCache.connected = false;
-          this.emit('connection', { connected: false, isMock: this.isMock, port: this.portPath });
+          this.port = null;
+          this.emit('connection', { connected: false, isMock: this.isMock, port: targetPath });
+
+          if (!this.enableMock) {
+            this._startPortWatcher();
+          }
         });
 
         resolve(true);
@@ -134,7 +204,7 @@ class HardwareManager extends EventEmitter {
   }
 
   /**
-   * Start built-in ATmega Simulator
+   * Start built-in ATmega Simulator (only if explicitly enabled)
    */
   _startMock() {
     this.isMock = true;
@@ -153,7 +223,7 @@ class HardwareManager extends EventEmitter {
     });
 
     this.emit('connection', { connected: true, isMock: true, port: 'VIRTUAL_ATMEGA_MOCK' });
-    this.emit('log', { level: 'info', text: 'Hardware Mock Simulator started successfully (Automatic Fallback Active).' });
+    this.emit('log', { level: 'info', text: 'Hardware Mock Simulator started successfully.' });
   }
 
   /**
@@ -166,7 +236,7 @@ class HardwareManager extends EventEmitter {
     } else if (this.port && this.port.isOpen) {
       this.port.write(buffer);
     } else {
-      throw new Error('Hardware connection unavailable (Neither serial port nor mock is ready)');
+      throw new Error('Hardware connection unavailable (Physical serial port is not connected)');
     }
 
     this.emit('raw_tx', {
@@ -206,8 +276,8 @@ class HardwareManager extends EventEmitter {
   }
 
   /**
-   * Core 5-Stage Transaction Executor
-   * Executes a command through the full ATmega binary protocol lifecycle
+   * Core Transaction Executor
+   * Executes a command through serial communication with timeout and retries
    *
    * @param {number} cmd Protocol CMD code
    * @param {Buffer|Array<number>} [data] Payload bytes
@@ -247,7 +317,7 @@ class HardwareManager extends EventEmitter {
   }
 
   /**
-   * Stage 1: Send COMMAND (0x01) with unique SEQ
+   * Stage 1: Send COMMAND (0x01) with unique 1-byte SEQ
    */
   _beginStage1(tx) {
     tx.stage = 1;
@@ -267,29 +337,29 @@ class HardwareManager extends EventEmitter {
       return this._finishTx(new Error(`Failed to transmit frame: ${err.message}`));
     }
 
-    // Set timeout for Stage 2: Waiting for COMMAND_RECEIVED (0x02)
+    // Set timeout waiting for MCU response
     tx.timer = setTimeout(() => {
-      this._handleAckTimeout(tx);
+      this._handleResponseTimeout(tx);
     }, this.ackTimeoutMs);
   }
 
   /**
-   * Handle ACK timeout (Stage 2 retry logic, up to 3 retries)
+   * Handle response timeout (Retry logic, up to 3 retries)
    */
-  _handleAckTimeout(tx) {
+  _handleResponseTimeout(tx) {
     if (tx.retries < this.maxRetries) {
       tx.retries++;
       this.emit('log', {
         level: 'warn',
-        text: `[Hardware] ACK timeout for SEQ=${tx.seq} CMD=${tx.cmdName}. Retrying (${tx.retries}/${this.maxRetries})...`
+        text: `[Hardware] Response timeout for SEQ=${tx.seq} CMD=${tx.cmdName}. Retrying (${tx.retries}/${this.maxRetries})...`
       });
       this._beginStage1(tx);
     } else {
       this.emit('log', {
         level: 'error',
-        text: `[Hardware] Transaction failed: No COMMAND_RECEIVED response after ${this.maxRetries} retries (SEQ=${tx.seq}).`
+        text: `[Hardware] Transaction failed: No response after ${this.maxRetries} retries (SEQ=${tx.seq}).`
       });
-      this._finishTx(new Error(`ATmega ACK timeout after ${this.maxRetries} retries for SEQ=${tx.seq}`));
+      this._finishTx(new Error(`ATmega response timeout after ${this.maxRetries} retries for SEQ=${tx.seq}`));
     }
   }
 
@@ -300,11 +370,11 @@ class HardwareManager extends EventEmitter {
     const tx = this.activeTx;
     if (!tx) return;
 
-    // Stage 2: Received COMMAND_RECEIVED (0x02)
+    // Intermediate ACK received (if firmware sends 0x02)
     if (frame.type === PROTOCOL.TYPE.COMMAND_RECEIVED && tx.stage === 1) {
       if (tx.timer) clearTimeout(tx.timer);
 
-      tx.stage = 3; // Stage 3: WAITING_FOR_EXECUTION
+      tx.stage = 3; // WAITING_FOR_EXECUTION
       this.emit('tx_stage', {
         stage: 2,
         stageName: 'COMMAND_RECEIVED',
@@ -314,7 +384,6 @@ class HardwareManager extends EventEmitter {
         latencyMs: Date.now() - tx.startTime
       });
 
-      // Set timeout for MCU execution completion
       tx.timer = setTimeout(() => {
         this._finishTx(new Error(`Execution timeout: ATmega did not return DONE/ERROR within ${this.executionTimeoutMs}ms for SEQ=${tx.seq}`));
       }, this.executionTimeoutMs);
@@ -322,7 +391,7 @@ class HardwareManager extends EventEmitter {
       return;
     }
 
-    // Stage 4: Received COMMAND_DONE (0x03) or COMMAND_ERROR (0x04)
+    // Command Finished: COMMAND_DONE (0x03) or COMMAND_ERROR (0x04)
     if (frame.type === PROTOCOL.TYPE.COMMAND_DONE || frame.type === PROTOCOL.TYPE.COMMAND_ERROR) {
       if (tx.timer) clearTimeout(tx.timer);
 
@@ -340,22 +409,6 @@ class HardwareManager extends EventEmitter {
         durationMs: Date.now() - tx.startTime
       });
 
-      // Stage 5: Send immediate DATA_RECEIVED (0x05) frame with the SAME SEQ to MCU
-      try {
-        const ackFrame = buildFrame(PROTOCOL.TYPE.DATA_RECEIVED, tx.cmd, tx.seq);
-        this._writeRaw(ackFrame);
-
-        this.emit('tx_stage', {
-          stage: 5,
-          stageName: 'DATA_RECEIVED_SENT',
-          seq: tx.seq,
-          cmd: tx.cmd,
-          cmdName: tx.cmdName
-        });
-      } catch (sendErr) {
-        this.emit('log', { level: 'error', text: `Failed to send DATA_RECEIVED ack: ${sendErr.message}` });
-      }
-
       // Conclude transaction
       if (isSuccess) {
         this._finishTx(null, {
@@ -367,7 +420,8 @@ class HardwareManager extends EventEmitter {
         });
       } else {
         const errorCode = frame.data && frame.data.length > 0 ? frame.data[0] : 0xFF;
-        this._finishTx(new Error(`ATmega command execution returned error code 0x${errorCode.toString(16)} for SEQ=${tx.seq}`));
+        const errorDesc = ERROR_NAMES[errorCode] || `UNKNOWN_ERROR_0x${errorCode.toString(16)}`;
+        this._finishTx(new Error(`ATmega returned ${errorDesc} (0x${errorCode.toString(16).padStart(2, '0')}) for SEQ=${tx.seq}`));
       }
     }
   }
@@ -400,7 +454,7 @@ class HardwareManager extends EventEmitter {
 
   /**
    * Ping the microcontroller
-   * @returns {Promise<number>} Round-trip latency in ms
+   * @returns {Promise<object>} Round-trip latency and seq
    */
   async ping() {
     const t0 = Date.now();
@@ -414,41 +468,44 @@ class HardwareManager extends EventEmitter {
    * Query status
    */
   async getStatus() {
-    const res = await this.execute(PROTOCOL.CMD.GET_STATUS);
-    return res;
+    return await this.execute(PROTOCOL.CMD.GET_STATUS);
   }
 
   /**
    * Query sensor states
    */
   async getSensors() {
-    const res = await this.execute(PROTOCOL.CMD.GET_SENSORS);
-    return res;
+    return await this.execute(PROTOCOL.CMD.GET_SENSORS);
   }
 
   /**
-   * Set hardware output (Relay 1 to 8)
-   * @param {number} outputId 1 to 8
+   * Set hardware output (Relay 1 to 24)
+   * Matches firmware format: CMD 0x04 with Payload [output (1-24), state (0 or 1)]
+   * @param {number} outputId 1 to 24
    * @param {boolean|number} state true/1 = ON, false/0 = OFF
    */
   async setOutput(outputId, state) {
     const id = Number(outputId);
+    if (id < 1 || id > PROTOCOL.OUTPUT_COUNT) {
+      throw new RangeError(`Output ID must be between 1 and ${PROTOCOL.OUTPUT_COUNT} (got ${id})`);
+    }
     const val = state ? 1 : 0;
     const res = await this.execute(PROTOCOL.CMD.SET_OUTPUT, [id, val]);
-    if (id >= 1 && id <= 8) {
-      this.statusCache.outputs[id - 1] = val;
-    }
+    this.statusCache.outputs[id - 1] = val;
     return res;
   }
 
   /**
-   * Dispense medication from physical slot
+   * Dispense medication from physical slot (1 to 24)
    * @param {number} slotId Physical slot number (1 - 24)
    * @param {number} [count=1] Number of items to drop
    */
   async dispense(slotId, count = 1) {
-    const res = await this.execute(PROTOCOL.CMD.DISPENSE, [slotId, count]);
-    return res;
+    const id = Number(slotId);
+    if (id < 1 || id > PROTOCOL.OUTPUT_COUNT) {
+      throw new RangeError(`Slot ID must be between 1 and ${PROTOCOL.OUTPUT_COUNT} (got ${id})`);
+    }
+    return await this.execute(PROTOCOL.CMD.DISPENSE, [id, count]);
   }
 
   /**
