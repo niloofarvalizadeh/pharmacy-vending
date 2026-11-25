@@ -314,38 +314,43 @@ wss.on('connection', (ws) => {
 
       case 'PAY_REQUEST': {
         const amount = msg.amount || (msg.data && msg.data.amount) || 0;
-        console.log(`[WS Mock] PAY_REQUEST received for amount: ${amount}`);
+        console.log(`[WS Mock] PAY_REQUEST received for amount: ${amount}. Waiting for card swipe or manual simulation.`);
+        if (ws._payTimer) clearTimeout(ws._payTimer);
+        if (ws._dropTimer) clearTimeout(ws._dropTimer);
+        if (ws._receiptTimer) clearTimeout(ws._receiptTimer);
+        // Manual simulation mode: do NOT automatically approve after 2.5s.
+        // Waiting for user to tap the POS card or real hardware card swipe.
+        break;
+      }
+
+      case 'SIMULATE_POS_APPROVED': {
+        const amount = msg.amount || (msg.data && msg.data.amount) || 0;
+        console.log(`[WS Mock] SIMULATE_POS_APPROVED triggered manually for amount: ${amount}`);
         if (ws._payTimer) clearTimeout(ws._payTimer);
         if (ws._dropTimer) clearTimeout(ws._dropTimer);
         if (ws._receiptTimer) clearTimeout(ws._receiptTimer);
 
-        // 1. Simulate POS approval after short realistic delay (2.5s)
-        ws._payTimer = setTimeout(() => {
-          ws._payTimer = null;
+        ws.send(JSON.stringify({
+          type: 'POS_ACK',
+          status: 'success',
+          data: { status: 'success', amount }
+        }));
+
+        ws._dropTimer = setTimeout(() => {
+          ws._dropTimer = null;
           ws.send(JSON.stringify({
-            type: 'POS_ACK',
-            status: 'success',
-            data: { status: 'success', amount }
+            type: 'DROP_SUCCESS',
+            data: { slotId: 'A1' }
           }));
+        }, 1200);
 
-          // 2. Simulate mechanical DROP_SUCCESS 1.5s after POS approval
-          ws._dropTimer = setTimeout(() => {
-            ws._dropTimer = null;
-            ws.send(JSON.stringify({
-              type: 'DROP_SUCCESS',
-              data: { slotId: 'A1' }
-            }));
-          }, 1500);
-
-          // 3. Simulate RECEIPT_PRINTED 3.5s after POS approval
-          ws._receiptTimer = setTimeout(() => {
-            ws._receiptTimer = null;
-            ws.send(JSON.stringify({
-              type: 'RECEIPT_PRINTED',
-              data: {}
-            }));
-          }, 3500);
-        }, 2500);
+        ws._receiptTimer = setTimeout(() => {
+          ws._receiptTimer = null;
+          ws.send(JSON.stringify({
+            type: 'RECEIPT_PRINTED',
+            data: {}
+          }));
+        }, 2800);
         break;
       }
 
