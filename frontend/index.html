@@ -6,7 +6,6 @@
   <meta name="viewport" content="width=1080, height=1920, initial-scale=1.0, user-scalable=no">
   <title>داروخانه دکتر موحد | کیوسک هوشمند ۵۵ اینچ</title>
   <link rel="stylesheet" href="css/kiosk.css">
-</head>
 
 <body>
   <!-- Kiosk Fixed 1080x1920 Stage Frame -->
@@ -194,10 +193,59 @@
       </section>
 
       <!-- =====================================================================
-           VIEW 2: CATALOG (کاتالوگ محصولات) - Skeleton for next prompt
+           VIEW 2: CATALOG (کاتالوگ محصولات) - 2x2 Grid matching design/list.jpg
            ===================================================================== -->
       <section class="view" data-view="catalog" id="view-catalog" aria-hidden="true">
-        <div class="view-content" id="catalogViewContent"></div>
+        <div class="catalog-viewport-content">
+
+          <!-- 1. Catalog Header: Back Button & Title / Breadcrumb -->
+          <div class="catalog-header-bar">
+            <button type="button" class="btn-catalog-back" id="btnCatalogBack" aria-label="بازگشت به صفحه اصلی">
+              <span id="lblCatalogBack">بازگشت</span>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                stroke-linecap="round" stroke-linejoin="round" class="back-arrow-icon">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </button>
+          </div>
+
+          <div class="catalog-title-group">
+            <h1 class="catalog-category-title" id="lblCatalogCategoryTitle">سلامت جنسی</h1>
+            <div class="catalog-breadcrumb" id="lblCatalogBreadcrumb">صفحه اصلی / سلامت جنسی</div>
+          </div>
+
+          <!-- 2. Products 2x2 Grid -->
+          <div class="catalog-products-grid" id="catalogProductsGrid">
+            <!-- Dynamically populated & localized via main.js from store.catalogProducts -->
+          </div>
+
+          <!-- 3. Pagination Dots (3 dots) -->
+          <div class="catalog-pagination-dots" id="catalogPaginationDots" aria-hidden="true">
+            <span class="catalog-dot is-active"></span>
+            <span class="catalog-dot"></span>
+            <span class="catalog-dot"></span>
+          </div>
+
+          <!-- 4. Catalog Bottom Navigation Bar -->
+          <footer class="catalog-footer-bar">
+            <div class="catalog-page-indicator">
+              <span id="lblCatalogPageIndicator">صفحه ۱ از ۲</span>
+              <svg class="page-indicator-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2L2 9.5V20C2 21.1 2.9 22 4 22H20C21.1 22 22 21.1 22 20V9.5L12 2Z"/>
+              </svg>
+            </div>
+
+            <button type="button" class="btn-catalog-home" id="btnCatalogHome" aria-label="بازگشت به خانه">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+              </svg>
+            </button>
+          </footer>
+
+        </div>
       </section>
 
       <!-- =====================================================================

@@ -235,6 +235,95 @@ function initCategories() {
 }
 
 /**
+ * 4.1 Initialize Catalog View (Category Products & Interactions)
+ */
+function renderCatalogProducts(categoryId) {
+  const grid = document.getElementById('catalogProductsGrid');
+  const titleEl = document.getElementById('lblCatalogCategoryTitle');
+  const breadcrumbEl = document.getElementById('lblCatalogBreadcrumb');
+
+  const catId = (categoryId === 'all') ? 'sexual_health' : (categoryId || 'sexual_health');
+  const cat = (store.categories || []).find(c => c.id === catId) || { id: 'sexual_health', nameKey: 'categorySexualHealth' };
+
+  if (titleEl) {
+    titleEl.textContent = t(cat.nameKey);
+    titleEl.dataset.catKey = cat.nameKey;
+  }
+
+  if (breadcrumbEl) {
+    let breadcrumbKey = 'breadcrumbSexualHealth';
+    if (catId === 'womens_health') breadcrumbKey = 'breadcrumbWomensHealth';
+    else if (catId === 'compounded') breadcrumbKey = 'breadcrumbCompounded';
+    breadcrumbEl.textContent = t(breadcrumbKey);
+    breadcrumbEl.dataset.breadcrumbKey = breadcrumbKey;
+  }
+
+  if (!grid) return;
+
+  const products = (store.catalogProducts && store.catalogProducts[catId])
+    ? store.catalogProducts[catId]
+    : ((store.catalogProducts && store.catalogProducts.sexual_health) || []);
+
+  grid.innerHTML = products.map((item) => `
+    <div class="catalog-product-card" data-product-id="${item.id}">
+      <div class="catalog-product-visual">
+        <img class="catalog-product-img" src="${item.img}" alt="${t(item.nameKey)}" loading="eager">
+      </div>
+      <div class="catalog-product-title" data-name-key="${item.nameKey}">${t(item.nameKey)}</div>
+      <div class="catalog-product-price" data-price="${item.price}">
+        <span class="price-val">${formatPrice(item.price, store.lang)}</span>
+        <span class="price-unit">${t('currencyUnit')}</span>
+      </div>
+      <button type="button" class="btn-catalog-buy" data-action="buy" data-product-id="${item.id}" aria-label="${t('buy')} ${t(item.nameKey)}">
+        <span class="buy-label-text">${t('buy')}</span>
+      </button>
+    </div>
+  `).join('');
+}
+
+function initCatalog() {
+  const btnCatalogBack = document.getElementById('btnCatalogBack');
+  const btnCatalogHome = document.getElementById('btnCatalogHome');
+  const catalogGrid = document.getElementById('catalogProductsGrid');
+
+  if (btnCatalogBack) {
+    btnCatalogBack.addEventListener('click', () => {
+      router.go('home');
+    });
+  }
+
+  if (btnCatalogHome) {
+    btnCatalogHome.addEventListener('click', () => {
+      router.go('home');
+    });
+  }
+
+  if (catalogGrid) {
+    catalogGrid.addEventListener('click', (e) => {
+      const buyBtn = e.target.closest('[data-action="buy"]');
+      if (buyBtn) {
+        const prodId = buyBtn.dataset.productId;
+        const currentCategory = (store.selectedCategory === 'all') ? 'sexual_health' : (store.selectedCategory || 'sexual_health');
+        const products = (store.catalogProducts && store.catalogProducts[currentCategory]) || [];
+        const product = products.find(p => p.id === prodId);
+        if (product) {
+          store.addToCart(product);
+          router.go('payment');
+        }
+      }
+    });
+  }
+
+  // Reactive subscriber for category selection (< 1ms target)
+  subscribe('selectedCategory', (newCategory) => {
+    renderCatalogProducts(newCategory);
+  });
+
+  // Initial render with current selectedCategory
+  renderCatalogProducts(store.selectedCategory || 'sexual_health');
+}
+
+/**
  * 5. Payment View Subsystem (Countdown, LED Strip, POS, Error & Recovery)
  */
 function updateCountdownUI(seconds) {
@@ -383,6 +472,20 @@ function initPaymentView() {
   if (btnPaymentRetry) {
     btnPaymentRetry.addEventListener('click', () => {
       startPaymentSession();
+    });
+  }
+
+  // Interactive Card Swipe Simulation on POS Illustration Tap
+  const posIllustrationWrap = document.getElementById('posIllustrationWrap');
+  if (posIllustrationWrap) {
+    posIllustrationWrap.style.cursor = 'pointer';
+    posIllustrationWrap.setAttribute('title', 'برای شبیه‌سازی کشیدن کارت کلیک کنید');
+    posIllustrationWrap.addEventListener('click', () => {
+      if (store.currentView === 'payment') {
+        console.log('[Kiosk Simulation] POS card swipe simulated by user tap.');
+        socketClient.send('SIMULATE_POS_APPROVED', { amount: store.cartTotal });
+        socketClient._dispatch(SOCKET_EVENTS.POS_ACK, { status: 'approved' });
+      }
     });
   }
 
@@ -694,6 +797,41 @@ function bindI18nSubscriber() {
     const receiptStatus = document.getElementById('lblReceiptStatus');
     if (receiptStatus) receiptStatus.textContent = t('receiptPrinting');
 
+    // Catalog View Localized Elements
+    const catalogBackLabel = document.getElementById('lblCatalogBack');
+    if (catalogBackLabel) catalogBackLabel.textContent = t('back');
+
+    const catalogPageIndicator = document.getElementById('lblCatalogPageIndicator');
+    if (catalogPageIndicator) catalogPageIndicator.textContent = t('pageIndicator');
+
+    const catTitle = document.getElementById('lblCatalogCategoryTitle');
+    if (catTitle && catTitle.dataset.catKey) {
+      catTitle.textContent = t(catTitle.dataset.catKey);
+    }
+
+    const catBreadcrumb = document.getElementById('lblCatalogBreadcrumb');
+    if (catBreadcrumb && catBreadcrumb.dataset.breadcrumbKey) {
+      catBreadcrumb.textContent = t(catBreadcrumb.dataset.breadcrumbKey);
+    }
+
+    document.querySelectorAll('.catalog-product-card').forEach(card => {
+      const titleNode = card.querySelector('.catalog-product-title');
+      if (titleNode && titleNode.dataset.nameKey) {
+        titleNode.textContent = t(titleNode.dataset.nameKey);
+      }
+      const priceNode = card.querySelector('.catalog-product-price');
+      if (priceNode && priceNode.dataset.price) {
+        const valEl = priceNode.querySelector('.price-val');
+        const unitEl = priceNode.querySelector('.price-unit');
+        if (valEl) valEl.textContent = formatPrice(Number(priceNode.dataset.price), newLang);
+        if (unitEl) unitEl.textContent = t('currencyUnit');
+      }
+      const buyLabel = card.querySelector('.buy-label-text');
+      if (buyLabel) {
+        buyLabel.textContent = t('buy');
+      }
+    });
+
     updateSuccessClock();
   });
 }
@@ -744,6 +882,7 @@ function boot() {
   initVideoBanner();
   initBestSellers();
   initCategories();
+  initCatalog();
   initPaymentView();
   initSuccessView();
   bindI18nSubscriber();

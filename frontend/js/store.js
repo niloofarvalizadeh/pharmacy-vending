@@ -32,6 +32,8 @@ export const DICTIONARIES = {
     // Catalog View
     back: 'بازگشت',
     breadcrumbSexualHealth: 'صفحه اصلی / سلامت جنسی',
+    breadcrumbWomensHealth: 'صفحه اصلی / سلامت بانوان',
+    breadcrumbCompounded: 'صفحه اصلی / داروهای ترکیبی',
     pageIndicator: 'صفحه ۱ از ۲',
     buy: 'خرید',
     currencyUnit: 'تومان',
@@ -88,6 +90,8 @@ export const DICTIONARIES = {
     // Catalog View
     back: 'Back',
     breadcrumbSexualHealth: 'Home / Sexual Health',
+    breadcrumbWomensHealth: "Home / Women's Health",
+    breadcrumbCompounded: 'Home / Compounded Medications',
     pageIndicator: 'Page 1 of 2',
     buy: 'Buy',
     currencyUnit: 'Toman',
@@ -144,6 +148,8 @@ export const DICTIONARIES = {
     // Catalog View
     back: 'رجوع',
     breadcrumbSexualHealth: 'الرئيسية / الصحة الجنسية',
+    breadcrumbWomensHealth: 'الرئيسية / صحة المرأة',
+    breadcrumbCompounded: 'الرئيسية / الأدوية المركبة',
     pageIndicator: 'صفحة ١ من ٢',
     buy: 'شراء',
     currencyUnit: 'تومان',
@@ -225,6 +231,100 @@ const rawState = {
     { id: 'womens_health', nameKey: 'categoryWomensHealth' },
     { id: 'compounded', nameKey: 'categoryCompounded' }
   ],
+
+  // Seeded Catalog Products for Categories (Mock Data)
+  catalogProducts: {
+    sexual_health: [
+      {
+        id: 'prod-kodex',
+        nameKey: 'prod_kodex',
+        price: 95000,
+        slotId: 'B1',
+        img: 'assets/products-webp/kodex_classic.png'
+      },
+      {
+        id: 'prod-lube',
+        nameKey: 'prod_lube',
+        price: 85000,
+        slotId: 'B2',
+        img: 'assets/products-webp/durex_lube.png'
+      },
+      {
+        id: 'prod-pregnancy-test',
+        nameKey: 'prod_pregnancy_test',
+        price: 45000,
+        slotId: 'B3',
+        img: 'assets/products-webp/pregnancy_test.png'
+      },
+      {
+        id: 'prod-feminine-wash',
+        nameKey: 'prod_feminine_wash',
+        price: 135000,
+        slotId: 'B4',
+        img: 'assets/products-webp/feminine_wash.png'
+      }
+    ],
+    womens_health: [
+      {
+        id: 'prod-feminine-wash',
+        nameKey: 'prod_feminine_wash',
+        price: 135000,
+        slotId: 'B4',
+        img: 'assets/products-webp/feminine_wash.png'
+      },
+      {
+        id: 'prod-pregnancy-test',
+        nameKey: 'prod_pregnancy_test',
+        price: 45000,
+        slotId: 'B3',
+        img: 'assets/products-webp/pregnancy_test.png'
+      },
+      {
+        id: 'prod-multivitamin',
+        nameKey: 'prod_multivitamin',
+        price: 140000,
+        slotId: 'A2',
+        img: 'assets/products-webp/multivitamin.svg'
+      },
+      {
+        id: 'prod-omega3',
+        nameKey: 'prod_omega3',
+        price: 195000,
+        slotId: 'A3',
+        img: 'assets/products-webp/omega3.svg'
+      }
+    ],
+    compounded: [
+      {
+        id: 'prod-vitaminc',
+        nameKey: 'prod_vitaminc',
+        price: 75000,
+        slotId: 'A1',
+        img: 'assets/products-webp/vitaminc.svg'
+      },
+      {
+        id: 'prod-multivitamin',
+        nameKey: 'prod_multivitamin',
+        price: 140000,
+        slotId: 'A2',
+        img: 'assets/products-webp/multivitamin.svg'
+      },
+      {
+        id: 'prod-omega3',
+        nameKey: 'prod_omega3',
+        price: 195000,
+        slotId: 'A3',
+        img: 'assets/products-webp/omega3.svg'
+      },
+      {
+        id: 'prod-lube',
+        nameKey: 'prod_lube',
+        price: 85000,
+        slotId: 'B2',
+        img: 'assets/products-webp/durex_lube.png'
+      }
+    ]
+  },
 
   // UI Interactive States
   langDropdownOpen: false,

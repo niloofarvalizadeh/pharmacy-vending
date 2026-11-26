@@ -294,6 +294,90 @@ wss.on('connection', (ws) => {
 
     switch (msg.type) {
       // ---------------------------------------------------------
+      // PROMPT 0 & PROMPT 5 ARCHITECTURE STANDARD HARDWARE EVENTS
+      // ---------------------------------------------------------
+      case 'SLOT_CHECK': {
+        const slotId = msg.slotId || (msg.data && msg.data.slotId) || 'A1';
+        const prod = db.getProductBySlot ? db.getProductBySlot(slotId) : null;
+        const inStock = prod ? prod.stock > 0 : true;
+        ws.send(JSON.stringify({
+          type: 'SLOT_STATUS',
+          status: 'ok',
+          data: {
+            ok: inStock,
+            slotId,
+            stock: prod ? prod.stock : 10
+          }
+        }));
+        break;
+      }
+
+      case 'PAY_REQUEST': {
+        const amount = msg.amount || (msg.data && msg.data.amount) || 0;
+        console.log(`[WS Mock] PAY_REQUEST received for amount: ${amount}. Waiting for card swipe or manual simulation.`);
+        if (ws._payTimer) clearTimeout(ws._payTimer);
+        if (ws._dropTimer) clearTimeout(ws._dropTimer);
+        if (ws._receiptTimer) clearTimeout(ws._receiptTimer);
+        // Manual simulation mode: do NOT automatically approve after 2.5s.
+        // Waiting for user to tap the POS card or real hardware card swipe.
+        break;
+      }
+
+      case 'SIMULATE_POS_APPROVED': {
+        const amount = msg.amount || (msg.data && msg.data.amount) || 0;
+        console.log(`[WS Mock] SIMULATE_POS_APPROVED triggered manually for amount: ${amount}`);
+        if (ws._payTimer) clearTimeout(ws._payTimer);
+        if (ws._dropTimer) clearTimeout(ws._dropTimer);
+        if (ws._receiptTimer) clearTimeout(ws._receiptTimer);
+
+        ws.send(JSON.stringify({
+          type: 'POS_ACK',
+          status: 'success',
+          data: { status: 'success', amount }
+        }));
+
+        ws._dropTimer = setTimeout(() => {
+          ws._dropTimer = null;
+          ws.send(JSON.stringify({
+            type: 'DROP_SUCCESS',
+            data: { slotId: 'A1' }
+          }));
+        }, 1200);
+
+        ws._receiptTimer = setTimeout(() => {
+          ws._receiptTimer = null;
+          ws.send(JSON.stringify({
+            type: 'RECEIPT_PRINTED',
+            data: {}
+          }));
+        }, 2800);
+        break;
+      }
+
+      case 'PAY_CANCEL': {
+        const reason = msg.reason || (msg.data && msg.data.reason) || 'user';
+        console.log(`[WS Mock] PAY_CANCEL received. Reason: ${reason}`);
+        if (ws._payTimer) {
+          clearTimeout(ws._payTimer);
+          ws._payTimer = null;
+        }
+        if (ws._dropTimer) {
+          clearTimeout(ws._dropTimer);
+          ws._dropTimer = null;
+        }
+        if (ws._receiptTimer) {
+          clearTimeout(ws._receiptTimer);
+          ws._receiptTimer = null;
+        }
+        ws.send(JSON.stringify({
+          type: 'POS_ACK',
+          status: 'cancelled',
+          data: { status: 'cancelled', reason }
+        }));
+        break;
+      }
+
+      // ---------------------------------------------------------
       // CUSTOMER FLOW: TRANSACTIONS & DISPENSE
       // ---------------------------------------------------------
 
